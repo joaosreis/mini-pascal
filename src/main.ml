@@ -6,7 +6,6 @@ open Lexing
 
 (* Option de compilation, pour s'arr�ter � l'issue du parser *)
 let parse_only = ref false
-let x86 = ref false
 
 (* Noms des fichiers source et cible *)
 let ifile = ref ""
@@ -18,8 +17,6 @@ let set_file f s = f := s
 let options =
   ["--parse-only", Arg.Set parse_only,
      "  Pour ne faire uniquement que la phase d'analyse syntaxique";
-   "--x86", Arg.Set x86,
-     "  Produit du code X86-64 (par d�faut MIPS)";
    "--debug", Arg.Set Typing.debug,
      "  Mode debuggage";]
 
@@ -66,8 +63,7 @@ let () =
     let p = Typing.prog p in
     let c = open_out (Filename.chop_suffix !ifile ".pas" ^ ".s") in
     let fmt = formatter_of_out_channel c in
-    if !x86 then X86_64.print_program fmt (Compilex86.prog p)
-    else Mips.print_program fmt (Compile.prog p);
+    X86_64.print_program fmt (Compilex86.prog p);
     close_out c
   with
     | Lexer.Lexing_error c ->
