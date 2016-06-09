@@ -1,10 +1,5 @@
-lexer.ml
-mini-pascal
-*.s
-parser.ml
-parser.mli
-.depend
-parser.automaton
 _build/
 main.byte
 main.native
+test.s
+test

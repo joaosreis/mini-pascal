@@ -1,6 +1,3 @@
-
-/* Analyseur syntaxique pour Arith */
-
 %{
   open Ast
 %}
@@ -12,8 +9,6 @@
 %token PLUS MINUS TIMES DIV AND OR NOT
 %token EQ NEQ LT LE GT GE
 
-/* D�finitions des priorit�s et associativit�s des tokens */
-
 %left OR
 %left AND
 %nonassoc NOT
@@ -23,10 +18,8 @@
 %nonassoc THEN
 %nonassoc ELSE
 
-/* Point d'entr�e de la grammaire */
 %start prog
 
-/* Type des valeurs retourn�es par l'analyseur syntaxique */
 %type <Ast.parsed_program> prog
 
 %%
@@ -76,7 +69,7 @@ expression:
 | c = CST                        { PEconst c }
 | id = IDENT                     { PEvar id }
 | e1 = expression o = op e2 = expression { PEbinop (o, e1, e2) }
-| MINUS e = expression %prec uminus    { PEbinop (Bsub, PEconst 0, e) } 
+| MINUS e = expression %prec uminus    { PEbinop (Bsub, PEconst 0, e) }
 | LPAREN e = expression RPAREN         { e }
 ;
 
@@ -127,4 +120,3 @@ decl:
     { PVar vars }
 | p = procedure
     { PProcedure p }
-

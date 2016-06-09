@@ -35,6 +35,6 @@ sanity:
 			which menhir
 
 test: 		native
-			./main.native "2 + 3 * 3"
+			./main.native test.pas
 
 .PHONY: 	all clean byte native profile debug sanity test
