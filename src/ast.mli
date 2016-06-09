@@ -1,8 +1,3 @@
-
-(* Syntaxe abstraite pour mini-Pascal *)
-
-(* syntaxe abstraite issue du parsing *)
-
 type binop = Badd | Bsub | Bmul | Bdiv
 
 type pint_expr =
@@ -39,12 +34,7 @@ and pdecl =
   | PVar of string list
   | PProcedure of pprocedure
 
-type parsed_program = pprocedure (* cas particulier o� formals = [] *)
-
-(* syntaxe abstraite typ�e : les identificateur contiennent maintenant
-   leur niveau de d�claration et offset la position dans le tableau
-   d'activation (pour une proc�dure l'offset n'est pas
-   significatif) *)
+type parsed_program = pprocedure
 
 type ident =
     { ident : string; level : int; offset : int; by_reference : by_reference }
@@ -82,5 +72,3 @@ and decl =
   | Procedure of procedure
 
 type typed_program = procedure
-
-

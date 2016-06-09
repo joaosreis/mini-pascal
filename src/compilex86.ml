@@ -1,20 +1,5 @@
-
 open X86_64
 open Ast
-
-(*
-            arg 1
-            ...
-            arg n
-            rbp père
-            adr. retour
-   rbp ---> ancien rbp
-            ...
-            var locales
-            ...
-            calculs
-   rsp ---> ...
-*)
 
 let rec iter n code = if n = 0 then nop else code ++ iter (n - 1) code
 
@@ -24,7 +9,6 @@ let fresh_label =
   let r = ref 0 in
   fun () -> incr r; "Label_" ^ string_of_int !r
 
-(* compile la valeur de l'expression dans %rdi *)
 let rec int_expr lvl = function
   | Econst n ->
       movq (imm n) (reg rdi)
@@ -111,11 +95,11 @@ let procedure p =
     p.pident.proc_name p.pident.proc_level;
   let fs = 8 + frame_size p.locals in
   label (symb p.pident.proc_name) ++
-  subq (imm fs) (reg rsp) ++                (* alloue la frame *)
-  movq (reg rbp) (ind ~ofs:(fs - 8) rsp) ++ (* sauve rbp *)
-  leaq (ind ~ofs:(fs - 8) rsp) rbp ++       (* rbp = rsp + fs - 8 *)
+  subq (imm fs) (reg rsp) ++
+  movq (reg rbp) (ind ~ofs:(fs - 8) rsp) ++
+  leaq (ind ~ofs:(fs - 8) rsp) rbp ++
   stmt (p.pident.proc_level + 1) p.body ++
-  movq (reg rbp) (reg rsp) ++ popq rbp ++ ret (* = leave ++ ret *)
+  movq (reg rbp) (reg rsp) ++ popq rbp ++ ret
 
 let rec decl = function
   | Var _ -> nop
@@ -129,11 +113,11 @@ let prog p =
   let code_procs = decls p.locals in
   { text =
       glabel "main" ++
-      subq (imm fs) (reg rsp) ++ (* alloue la frame *)
-      leaq (ind ~ofs:(fs - 8) rsp) rbp ++ (* fp = ... *)
+      subq (imm fs) (reg rsp) ++
+      leaq (ind ~ofs:(fs - 8) rsp) rbp ++
       code_main ++
-      addq (imm fs) (reg rsp) ++ (* désalloue la frame *)
-      movq (imm 0) (reg rax) ++ (* exit *)
+      addq (imm fs) (reg rsp) ++
+      movq (imm 0) (reg rax) ++
       ret ++
       label "print_int" ++
       movq (reg rdi) (reg rsi) ++
@@ -145,4 +129,3 @@ let prog p =
     data =
       label ".Sprint_int" ++ string "%d\n"
   }
-

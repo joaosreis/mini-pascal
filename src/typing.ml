@@ -1,4 +1,3 @@
-
 open Ast
 
 let debug = ref false
@@ -15,7 +14,6 @@ let bad_arity p a =
 let unique =
   let r = ref 0 in fun s -> incr r; s ^ "__" ^ string_of_int !r
 
-(* associe � chaque nom (string) une valeur de type ident *)
 module Env = Map.Make(String)
 
 type env =

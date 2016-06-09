@@ -1,13 +1,9 @@
-
-(* Analyseur lexical pour mini-Pascal *)
-
 {
   open Lexing
   open Parser
 
   exception Lexing_error of string
 
-  (* tables des mots-cl�s *)
   let kwd_tbl =
     ["and", AND; "or", OR; "not", NOT;
      "if", IF; "then", THEN; "else", ELSE;
@@ -20,7 +16,7 @@
     let h = Hashtbl.create 17 in
     List.iter (fun (s,t) -> Hashtbl.add h s t) kwd_tbl;
     fun s ->
-      let s = String.lowercase s in (* la casse n'est pas significative *)
+      let s = String.lowercase s in
       try List.assoc s kwd_tbl with _ -> IDENT s
 
   let newline lexbuf =
@@ -63,11 +59,8 @@ rule token = parse
   | eof     { raise (Lexing_error "reached end of file") }
   | _ as c  { raise (Lexing_error ("illegal character: " ^ String.make 1 c)) }
 
-(* note : les commentaires ne sont pas imbriqu�s en Pascal *)
 and comment = parse
   | "*)" | "}"
             { token lexbuf }
   | _       { comment lexbuf }
   | eof     { raise (Lexing_error ("unterminated comment")) }
-
-
