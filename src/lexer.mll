@@ -87,6 +87,6 @@ and read_string buf =
   | eof { raise (SyntaxError ("String is not terminated")) }
 
 and comment = parse
-  | "*)" | "}"  { token lexbuf }
+  | "*)" | "}"  { read lexbuf }
   | _           { comment lexbuf }
   | eof         { raise (SyntaxError ("unterminated comment")) }

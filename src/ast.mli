@@ -1,6 +1,6 @@
-type standard_type = Integer | Real | Character | String
+type standard_type = Integer | Real | Character | String of int
 
-type ttype = Array | Standard of standard_type
+type ttype = Array of standard_type * int | Standard of standard_type
 
 type num_unop = Nneg
 
@@ -39,10 +39,10 @@ type bool_unop = Bnot
 type bool_binop = Band | Bor
 
 type pbool_expr =
-  | PBbinop   of bool_binop * pbool_expr * pbool_expr
-  | PBunop    of bool_unop * pbool_expr
-  | PBintcmp  of cmp * pint_expr * pint_expr
-  | PBfloatcmp   of cmp * pfloat_expr * pfloat_expr
+  | PBbinop     of bool_binop * pbool_expr * pbool_expr
+  | PBunop      of bool_unop * pbool_expr
+  | PBintcmp    of cmp * pint_expr * pint_expr
+  | PBfloatcmp  of cmp * pfloat_expr * pfloat_expr
   | PBcharcmp   of cmp * pchar_expr * pchar_expr
 
 type pexpr =
@@ -50,7 +50,6 @@ type pexpr =
   | PEfloat   of pfloat_expr
   | PEchar    of pchar_expr
   | PEstring  of pstring_expr
-  | PEbool    of pbool_expr
 
 type pstmt =
   | PSassign of string * pexpr
@@ -112,10 +111,10 @@ type bool_expr =
   | Bcharcmp  of cmp * char_expr * char_expr
 
 type expr =
-  | Eint    of pint_expr
-  | Efloat  of pfloat_expr
-  | Echar   of pchar_expr
-  | Estring of pstring_expr
+  | Eint    of int_expr
+  | Efloat  of float_expr
+  | Echar   of char_expr
+  | Estring of string_expr
 
 type pident = { proc_name : string; proc_level : int }
 
@@ -124,7 +123,7 @@ type stmt =
   | Sif      of bool_expr * stmt * stmt
   | Swhile   of bool_expr * stmt
   | Sblock   of stmt list
-  | Scall    of pident * int_expr list
+  | Scall    of pident * expr list
   | Swriteln of expr
 
 type procedure =

@@ -21,28 +21,50 @@ type env =
     procs : (pident * formals) Env.t }
 
 let rec int_expr env = function
-  | PEconst n -> Econst n
-  | PEvar x -> Evar (try Env.find x env.vars with Not_found -> unbound_var x)
-  | PEbinop (o, e1, e2) -> Ebinop (o, int_expr env e1, int_expr env e2)
+  | PIconst n -> Iconst n
+  | PIvar x -> Ivar (try Env.find x env.vars with Not_found -> unbound_var x)
+  | PIbinop (o, e1, e2) -> Ibinop (o, int_expr env e1, int_expr env e2)
+  | PIunop (o, e1) -> Iunop (o, int_expr env e1)
+
+let rec float_expr env = function
+  | PFconst n -> Fconst n
+  | PFvar x -> Fvar (try Env.find x env.vars with Not_found -> unbound_var x)
+  | PFbinop (o, e1, e2) -> Fbinop (o, float_expr env e1, float_expr env e2)
+  | PFunop (o, e1) -> Funop (o, float_expr env e1)
+
+let rec char_expr env = function
+  | PCconst n -> Cconst n
+  | PCvar x -> Cvar (try Env.find x env.vars with Not_found -> unbound_var x)
+  | PCbinop (o, e1, e2) -> Cbinop (o, char_expr env e1, char_expr env e2)
+
+let rec string_expr env = function
+  | PSconst n -> Sconst n
+  | PSvar x -> Svar (try Env.find x env.vars with Not_found -> unbound_var x)
+  | PSbinop (o, e1, e2) -> Sbinop (o, string_expr env e1, string_expr env e2)
 
 let formal env (x,br) e =
   let te = int_expr env e in
   if br then match te with
-    | Evar x -> Eaddr x
+    | Ivar x -> Iaddr x
     | _ -> reference_expected x
   else
     te
 
 let rec bool_expr env = function
-  | PBcmp (c, e1, e2) -> Bcmp (c, int_expr env e1, int_expr env e2)
-  | PBand (e1, e2) -> Band (bool_expr env e1, bool_expr env e2)
-  | PBor (e1, e2) -> Bor (bool_expr env e1, bool_expr env e2)
-  | PBnot e1 -> Bnot (bool_expr env e1)
+  | PBbinop (op, e1, e2) -> Bbinop (op, bool_expr env e1, bool_expr env e2)
+  | PBunop (op, e1) -> Bunop (op, bool_expr env e1)
+  | PBintcmp (c, e1, e2) -> Bintcmp (c, int_expr env e1, int_expr env e2)
+  | PBfloatcmp (c, e1, e2) -> Bfloatcmp (c, float_expr env e1, float_expr env e2)
+  | PBcharcmp (c, e1, e2) -> Bcharcmp (c, char_expr env e1, char_expr env e2)
 
 let rec stmt env = function
   | PSassign (x, e) ->
-      let x = try Env.find x env.vars with Not_found -> unbound_var x in
-      Sassign (x, int_expr env e)
+    let x = try Env.find x env.vars with Not_found -> unbound_var x in
+    Sassign (x, (match e with
+        | PEint e1 -> Eint (int_expr env e1)
+        | PEfloat e1 -> Efloat (float_expr env e1)
+        | PEchar e1 -> Echar (char_expr env e1)
+        | PEstring e1 -> Estring (string_expr env e1)))
   | PSif (b, s1, s2) ->
       Sif (bool_expr env b, stmt env s1, stmt env s2)
   | PSwhile (b, s1) ->
@@ -50,7 +72,11 @@ let rec stmt env = function
   | PSblock sl ->
       Sblock (List.map (stmt env) sl)
   | PScall ("writeln", [e]) ->
-      Swriteln (int_expr env e)
+    Swriteln (match e with
+        | PEint e1 -> Eint (int_expr env e1)
+        | PEfloat e1 -> Efloat (float_expr env e1)
+        | PEchar e1 -> Echar (char_expr env e1)
+        | PEstring e1 -> Estring (string_expr env e1))
   | PScall (p, el) ->
       let p,fl = try Env.find p env.procs with Not_found -> unbound_proc p in
       let a = List.length fl in

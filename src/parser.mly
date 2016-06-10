@@ -10,7 +10,7 @@
 %token TRUE
 %token FALSE
 %token COMMA DOT IF THEN PROGRAM COLONEQ BEGIN END ELSE PROCEDURE
-%token LPAREN RPAREN INTEGER REAL CHARACTER TSTRING VAR COLON SEMICOLON WHILE DO
+%token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING VAR COLON SEMICOLON WHILE DO
 %token EXP PLUS MINUS TIMES DIV AND OR NOT
 %token EQ NEQ LT LE GT GE
 
@@ -152,11 +152,13 @@ decl:
   | VAR vars=terminated_bindings SEMICOLON  { PVar vars }
   | p=procedure                             { PProcedure p }
 
-%inline types:
-  | t=standard_types  { Standard t }
+types:
+  | t=standard_types LBRACKET s=INT RBRACKET  { Array (t,s) }
+  | t=standard_types                          { Standard t }
 
 %inline standard_types:
-  | INTEGER   { Integer }
-  | REAL      { Real }
-  | CHARACTER { Character }
-  | TSTRING   { String }
+  | INTEGER                         { Integer }
+  | REAL                            { Real }
+  | CHARACTER                       { Character }
+  | TSTRING LBRACKET s=INT RBRACKET { String s }
+  | TSTRING                         { String 255 }

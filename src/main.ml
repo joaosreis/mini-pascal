@@ -32,13 +32,13 @@ let () =
     exit 1
   end;
 
-  
+
   let f = open_in !ifile in
 
   let buf = Lexing.from_channel f in
 
   try
-    let p = Parser.prog Lexer.token buf in
+    let p = Parser.prog Lexer.read buf in
     close_in f;
 
     if !parse_only then exit 0;
@@ -49,7 +49,7 @@ let () =
     X86_64.print_program fmt (Compilex86.prog p);
     close_out c
   with
-  | Lexer.Lexing_error c ->
+  | Lexer.SyntaxError c ->
     localisation (Lexing.lexeme_start_p buf);
     eprintf "Lexical error : %s@." c;
     exit 1
