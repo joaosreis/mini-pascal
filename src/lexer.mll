@@ -9,6 +9,7 @@ let kwd_tbl =
    "if", IF; "then", THEN; "else", ELSE;
    "program", PROGRAM; "var", VAR; "begin", BEGIN; "end", END;
    "integer", INTEGER; "real", REAL; "char", CHARACTER; "string", TSTRING;
+   "bool", BOOLEAN; "true", TRUE; "false", FALSE;
    "procedure", PROCEDURE; "while", WHILE; "do", DO;
   ]
 
@@ -61,8 +62,8 @@ rule read = parse
   | ";"           { SEMICOLON }
   | "(*" | "{"    { comment lexbuf }
   | '"'           { read_string (Buffer.create 17) lexbuf }
-  | "true"        { TRUE }
-  | "false"       { FALSE }
+  | "true"        { BOOL (true) }
+  | "false"       { BOOL (false) }
   | real as s     { FLOAT (float_of_string s) }
   | integer as s  { INT (int_of_string s) }
 

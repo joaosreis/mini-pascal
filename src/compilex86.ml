@@ -10,60 +10,67 @@ let fresh_label =
   fun () -> incr r; "Label_" ^ string_of_int !r
 
 let rec int_expr lvl = function
-  | Iconst n ->
-    movq (imm n) (reg rdi)
-  | Ivar { level = l; offset = ofs; by_reference = br } ->
+  | Econst n ->
+    (match n with
+     | Cint x -> movq (imm x) (reg rdi)
+     | _ -> assert false)
+  | Evar { level = l; offset = ofs; by_reference = br } ->
     movq (reg rbp) (reg rsi) ++
     iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
     movq (ind ~ofs rsi) (reg rdi) ++
     if br then movq (ind rdi) (reg rdi) else nop
-  | Iaddr { level = l; offset = ofs; by_reference = br } ->
+  | Eaddr { level = l; offset = ofs; by_reference = br } ->
     movq (reg rbp) (reg rdi) ++
     iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
     addq (imm ofs) (reg rdi) ++
     if br then movq (ind rdi) (reg rdi) else nop
-  | Iunop (op, e) ->
+  | Eunop (op, e) ->
     int_expr lvl e (* TODO implement*)
-  | Ibinop (op, e0, e1) ->
+  | Ebinop (op, e0, e1) ->
     int_expr lvl e1 ++ pushq (reg rdi) ++ int_expr lvl e0 ++
     (match op with
-     | Iadd -> popq rsi ++ addq (reg rsi) (reg rdi)
-     | Isub -> popq rsi ++ subq (reg rsi) (reg rdi)
-     | Imul -> popq rsi ++ imulq (reg rsi) (reg rdi)
-     | Idiv -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
-               idivq (reg rdi) ++ movq (reg rax) (reg rdi)
-     | Ipow -> cqto (* TODO remove cqto and implement *))
+     | Nbinop o ->
+       (match o with
+        | Nadd -> popq rsi ++ addq (reg rsi) (reg rdi)
+        | Nsub -> popq rsi ++ subq (reg rsi) (reg rdi)
+        | Nmul -> popq rsi ++ imulq (reg rsi) (reg rdi)
+        | Ndiv -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
+                  idivq (reg rdi) ++ movq (reg rax) (reg rdi))
+     | Ibinop o ->
+       (match o with
+        | Ipow -> cqto (* TODO remove cqto and implement *))
+     | _ -> assert false)
 
-let rec float_expr lvl = function Fconst n -> label ""
-  (* TODO remove previous code and implement:
-    function
-  | Fconst n ->
-    movq (imm n) (reg rdi)
-  | Fvar { level = l; offset = ofs; by_reference = br } ->
-    movq (reg rbp) (reg rsi) ++
-    iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
-    movq (ind ~ofs rsi) (reg rdi) ++
-    if br then movq (ind rdi) (reg rdi) else nop
-  | Faddr { level = l; offset = ofs; by_reference = br } ->
-    movq (reg rbp) (reg rdi) ++
-    iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
-    addq (imm ofs) (reg rdi) ++
-    if br then movq (ind rdi) (reg rdi) else nop
-  | Funop (op, e) ->
-    float_expr lvl e (* TODO implement*)
-  | Fbinop (op, e0, e1) ->
-    float_expr lvl e1 ++ pushq (reg rdi) ++ float_expr lvl e0 ++
-    (match op with
-     | Fadd -> popq rsi ++ addq (reg rsi) (reg rdi)
-     | Fsub -> popq rsi ++ subq (reg rsi) (reg rdi)
-     | Fmul -> popq rsi ++ imulq (reg rsi) (reg rdi)
-     | Fdiv -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
-               idivq (reg rdi) ++ movq (reg rax) (reg rdi)) *)
+let rec float_expr lvl = function Econst n -> label ""
+(* TODO remove previous code and implement:
+   function
+   | Fconst n ->
+   movq (imm n) (reg rdi)
+   | Fvar { level = l; offset = ofs; by_reference = br } ->
+   movq (reg rbp) (reg rsi) ++
+   iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
+   movq (ind ~ofs rsi) (reg rdi) ++
+   if br then movq (ind rdi) (reg rdi) else nop
+   | Faddr { level = l; offset = ofs; by_reference = br } ->
+   movq (reg rbp) (reg rdi) ++
+   iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
+   addq (imm ofs) (reg rdi) ++
+   if br then movq (ind rdi) (reg rdi) else nop
+   | Funop (op, e) ->
+   float_expr lvl e (* TODO implement*)
+   | Fbinop (op, e0, e1) ->
+   float_expr lvl e1 ++ pushq (reg rdi) ++ float_expr lvl e0 ++
+   (match op with
+   | Fadd -> popq rsi ++ addq (reg rsi) (reg rdi)
+   | Fsub -> popq rsi ++ subq (reg rsi) (reg rdi)
+   | Fmul -> popq rsi ++ imulq (reg rsi) (reg rdi)
+   | Fdiv -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
+             idivq (reg rdi) ++ movq (reg rax) (reg rdi)) *)
 
-let rec char_expr lvl = function Cconst n -> label ""
+let rec char_expr lvl = function Econst n -> label ""
 (* TODO remove previous code and implement *)
 
-let rec string_expr lvl = function Sconst n -> label ""
+let rec string_expr lvl = function Econst n -> label ""
 (* TODO remove previous code and implement *)
 
 let cmp_op = function
@@ -71,69 +78,91 @@ let cmp_op = function
   | Blt -> setl | Ble -> setle | Bgt -> setg | Bge -> setge
 
 (* compile la valeur de l'expression dans %rdi *)
-let rec bool_expr lvl = function
-  | Bbinop (op, e1, e2) ->
+let rec bool_expr lvl = function Econst n -> label ""
+  (* | Econst c -> label ""
+  | Evar v -> label ""
+  | Eaddr v -> label ""
+  | Eunop (op, e) ->
     (match op with
-     | Band ->
-       let lab = fresh_label () in
-       bool_expr lvl e1 ++
-       testq (reg rdi) (reg rdi) ++ je lab ++ bool_expr lvl e2 ++ label lab
-     | Bor ->
-       let lab = fresh_label () in
-       bool_expr lvl e1 ++
-       testq (reg rdi) (reg rdi) ++ jne lab ++ bool_expr lvl e2 ++ label lab)
-  | Bunop (op, e1) ->
-    bool_expr lvl e1 ++ testq (reg rdi) (reg rdi) ++
-    sete (reg dil) ++ movzbq (reg dil) rdi
-  | Bintcmp (op, e0, e1) ->
-    int_expr lvl e0 ++ pushq (reg rdi) ++
-    int_expr lvl e1 ++ popq rsi ++ cmpq (reg rdi) (reg rsi) ++
-    (cmp_op op) (reg dil) ++ movzbq (reg dil) rdi
-  | Bfloatcmp (op, e0, e1) ->
-    movzbq (reg dil) rdi (* TODO remove this line and implement *)
-  | Bcharcmp (op, e0, e1) ->
-    movzbq (reg dil) rdi (* TODO remove this line and implement *)
+     | Bunop o ->
+       (match o with
+          Bnot ->
+          bool_expr lvl e ++ testq (reg rdi) (reg rdi) ++
+                 sete (reg dil) ++ movzbq (reg dil) rdi))
+  | Ebinop (op, e0, e1) ->
+    (match op with
+     | Bbinop o ->
+       (match o with
+        | Band ->
+          let lab = fresh_label () in
+          bool_expr lvl e1 ++
+          testq (reg rdi) (reg rdi) ++ je lab ++ bool_expr lvl e2 ++ label lab
+        | Bor ->
+          let lab = fresh_label () in
+          bool_expr lvl e1 ++
+          testq (reg rdi) (reg rdi) ++ jne lab ++ bool_expr lvl e2 ++ label lab)
+     | Cmpbinop o ->
+       (match o with
+         int_expr lvl e0 ++ pushq (reg rdi) ++
+         int_expr lvl e1 ++ popq rsi ++ cmpq (reg rdi) (reg rsi) ++
+         (cmp_op op) (reg dil) ++ movzbq (reg dil) rdi
+       )) *)
+
+let expression lvl e =
+  match e.etype with
+  | Standard(Integer) -> int_expr lvl e.eexpr
+  | Standard(Real) -> float_expr lvl e.eexpr
+  | Standard(Character) -> char_expr lvl e.eexpr
+  | Standard(String(_)) -> string_expr lvl e.eexpr
+  | Standard(Boolean) -> bool_expr lvl e.eexpr
+  | _ -> (* TODO array *) label ""
 
 let popn n = addq (imm (8 * n)) (reg rsp)
 
 let rec stmt lvl = function
   | Swriteln e ->
-    (match e with
-     | Eint e1 -> int_expr lvl e1 ++ call "print_int"
-     | Efloat e1 -> float_expr lvl e1 ++ call "print_float"
-     | Echar e1 -> char_expr lvl e1 ++ call "print_char"
-     | Estring e1 -> string_expr lvl e1 ++ call "print_string")
+    let e1 = expression lvl e in
+    (match e.etype with
+     | Standard(Integer) -> e1 ++ call "print_int"
+     | Standard(Real) -> e1 ++ call "print_float"
+     | Standard(Character) -> e1 ++ call "print_char"
+     | Standard(String(_)) -> e1 ++ call "print_string"
+     | Standard(Boolean) -> e1 ++ call "print_bool"
+     | _ -> (* TODO array *) label "")
   | Scall ({proc_name = id; proc_level = l}, el) ->
     List.fold_left
-      (fun code s -> code ++ int_expr lvl s ++ pushq (reg rdi)) nop el ++
+      (fun code s -> code ++ expression lvl s ++ pushq (reg rdi)) nop el ++
     movq (reg rbp) (reg rsi) ++
     iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++ pushq (reg rsi) ++
     call (symb id) ++ popn (1 + List.length el)
   | Sassign ({ level = l; offset = ofs; by_reference = br }, e) ->
-    (match e with
-     | Eint e1 ->
-       int_expr lvl e1 ++
-       movq (reg rbp) (reg rsi) ++
+    let e1 = expression lvl e in
+    (match e.etype with
+     | Standard(Integer) ->
+       e1 ++ movq (reg rbp) (reg rsi) ++
        iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
        (if br then movq (ind ~ofs rsi) (reg rsi)
         else addq (imm ofs) (reg rsi)) ++
        movq (reg rdi) (ind rsi)
-     | Efloat e1 ->
-       float_expr lvl e1 (* TODO implement *)
-     | Echar e1 ->
-       char_expr lvl e1 (* TODO implement *)
-     | Estring e1 ->
-       string_expr lvl e1 (* TODO implement *))
+     | Standard(Real) ->
+       e1 (* TODO implement *)
+     | Standard(Character) ->
+       e1 (* TODO implement *)
+     | Standard(String(_)) ->
+       e1 (* TODO implement *)
+     | Standard(Boolean) ->
+       e1 (* TODO implement *)
+     | _ -> (* TODO array *) e1 (* TODO implement *))
   | Sif (e, s1, s2) ->
     let l_else = fresh_label () in
     let l_done = fresh_label () in
-    bool_expr lvl e ++
+    expression lvl e ++
     testq (reg rdi) (reg rdi) ++ jz l_else ++
     stmt lvl s1 ++ jmp l_done ++ label l_else ++ stmt lvl s2 ++ label l_done
   | Swhile (e, s) ->
     let l_test = fresh_label () in
     let l_done = fresh_label () in
-    label l_test ++ bool_expr lvl e ++
+    label l_test ++ expression lvl e ++
     testq (reg rdi) (reg rdi) ++ jz l_done ++
     stmt lvl s ++ jmp l_test ++ label l_done
   | Sblock sl ->
@@ -179,6 +208,7 @@ let prog p =
       movq (imm 0) (reg rax) ++
       call "printf" ++
       ret ++
+      (* TODO implement other prints *)
       code_procs;
     data =
       label ".Sprint_int" ++ string "%d\n"

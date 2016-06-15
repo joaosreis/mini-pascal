@@ -6,11 +6,12 @@
 %token <float> FLOAT
 %token <char> CHAR
 %token <string> STRING
+%token <bool> BOOL
 %token <string> IDENT
 %token TRUE
 %token FALSE
 %token COMMA DOT IF THEN PROGRAM COLONEQ BEGIN END ELSE PROCEDURE
-%token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING VAR COLON SEMICOLON WHILE DO
+%token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING BOOLEAN VAR COLON SEMICOLON WHILE DO TYPE RECORD
 %token EXP PLUS MINUS TIMES DIV AND OR NOT
 %token EQ NEQ LT LE GT GE
 
@@ -54,73 +55,44 @@ stmt_or_block:
   | b=block { b }
 
 expression:
-  | i=int_expression    { PEint i }
-  | f=float_expression  { PEfloat f }
-  | c=char_expression   { PEchar c }
-  | s=string_expression { PEstring s }
+  | c=constant                          { PEconst c }
+  | id=IDENT                            { PEvar id }
+  | e1=expression o=binop e2=expression { PEbinop (o, e1, e2) }
+  | op=unop e=expression %prec uminus   { PEunop (op, e) }
+  | LPAREN e=expression RPAREN          { e }
+;
 
-int_expression:
-  | c=INT                                           { PIconst c }
-  | id=IDENT                                        { PIvar id }
-  | e1=int_expression o=int_binop e2=int_expression { PIbinop (o, e1, e2) }
-  | op=num_unop e=int_expression %prec uminus       { PIunop (op, e) }
-  | LPAREN e=int_expression RPAREN                  { e }
+constant:
+  | c=INT     { Cint c }
+  | c=FLOAT   { Cfloat c }
+  | c=CHAR    { Cchar c }
+  | c=STRING  { Cstring c }
+  | c=BOOL    { Cbool c }
+
+binop:
+  | o=num_binop     { Nbinop(o) }
+  | o=int_binop     { Ibinop(o) }
+  | o=literal_binop { Lbinop(o) }
+  | o=bool_binop    { Bbinop(o) }
+  | o=cmp           { Cmpbinop(o) }
+
+%inline num_binop:
+  | PLUS  { Nadd }
+  | MINUS { Nsub }
+  | TIMES { Nmul }
+  | DIV   { Ndiv }
 ;
 
 %inline int_binop:
-  | PLUS  { Iadd }
-  | MINUS { Isub }
-  | TIMES { Imul }
-  | DIV   { Idiv }
-  | EXP   { Ipow }
-;
-
-float_expression:
-  | c=FLOAT                                             { PFconst c }
-  | id=IDENT                                            { PFvar id }
-  | e1=float_expression o=float_binop e2=float_expression { PFbinop (o, e1, e2) }
-  | op=num_unop e=float_expression %prec uminus         { PFunop (op, e) }
-  | LPAREN e=float_expression RPAREN                    { e }
-;
-
-%inline float_binop:
-  | PLUS  { Fadd }
-  | MINUS { Fsub }
-  | TIMES { Fmul }
-  | DIV   { Fdiv }
-;
-
-%inline num_unop:
-  | MINUS { Nneg }
-
-char_expression:
-  | c=CHAR                                                { PCconst c }
-  | id=IDENT                                              { PCvar id }
-  | e1=char_expression o=literal_binop e2=char_expression { PCbinop (o, e1, e2) }
-  | LPAREN e=char_expression RPAREN                       { e }
-;
-
-string_expression:
-  | c=STRING                                                  { PSconst c }
-  | id=IDENT                                                  { PSvar id }
-  | e1=string_expression o=literal_binop e2=string_expression { PSbinop (o, e1, e2) }
-  | LPAREN e=string_expression RPAREN                         { e }
+  | EXP  { Ipow }
 ;
 
 %inline literal_binop:
   | PLUS  { Lconcat }
 
-condition:
-  | e1=int_expression c=cmp e2=int_expression     { PBintcmp (c, e1, e2) }
-  | e1=float_expression c=cmp e2=float_expression { PBfloatcmp (c, e1, e2) }
-  | e1=char_expression c=cmp e2=char_expression   { PBcharcmp (c, e1, e2) }
-  | c1=condition op=bool_binop c2=condition       { PBbinop (op, c1, c2) }
-  | op=bool_unop c1=condition                     { PBunop (op, c1) }
-  | LPAREN c=condition RPAREN                     { c }
-;
-
-%inline bool_unop:
-  | NOT { Bnot }
+  %inline bool_binop:
+  | AND { Band }
+  | OR  { Bor }
 
 %inline cmp:
   | EQ  { Beq }
@@ -131,9 +103,22 @@ condition:
   | GE  { Bge }
 ;
 
-%inline bool_binop:
-  | AND { Band }
-  | OR  { Bor }
+%inline unop:
+  | o=num_unop   { Nunop(o) }
+  | o=bool_unop  { Bunop(o) }
+
+%inline num_unop:
+  | MINUS { Nneg }
+
+%inline bool_unop:
+    | NOT { Bnot }
+
+condition:
+  | e1=expression c=cmp e2=expression       { PEbinop (Cmpbinop c, e1, e2) }
+  | c1=condition op=bool_binop c2=condition { PEbinop (Bbinop op, c1, c2) }
+  | op=bool_unop c1=condition               { PEunop (Bunop op, c1) }
+  | LPAREN c=condition RPAREN               { c }
+;
 
 formals:
   | bindings=separated_list(SEMICOLON, formal) (* list can be empty *){ bindings }
@@ -153,12 +138,13 @@ decl:
   | p=procedure                             { PProcedure p }
 
 types:
-  | t=standard_types LBRACKET s=INT RBRACKET  { Array (t,s) }
+  | t=standard_types LBRACKET s=INT RBRACKET  { Array (TArray (t,s)) }
   | t=standard_types                          { Standard t }
 
 %inline standard_types:
   | INTEGER                         { Integer }
   | REAL                            { Real }
   | CHARACTER                       { Character }
-  | TSTRING LBRACKET s=INT RBRACKET { String s }
-  | TSTRING                         { String 255 }
+  | TSTRING LBRACKET s=INT RBRACKET { String (NString s) }
+  | TSTRING                         { String (NString 255) }
+  | BOOLEAN                         { Boolean }

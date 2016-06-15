@@ -1,60 +1,54 @@
-type standard_type = Integer | Real | Character | String of int
+type tstring = TString | NString of int
 
-type ttype = Array of standard_type * int | Standard of standard_type
+type standard_type = Integer | Real | Character | String of tstring | Boolean
+
+type tarray = TArray of standard_type * int
+
+type ttype = Array of tarray | Standard of standard_type
+
+type const =
+    Cint of int
+  | Cfloat of float
+  | Cchar of char
+  | Cstring of string
+  | Cbool of bool
+  | Carray of tarray
 
 type num_unop = Nneg
 
-type int_binop = Iadd | Isub | Imul | Idiv | Ipow
+type num_binop = Nadd | Nsub | Nmul | Ndiv
 
-type pint_expr =
-  | PIconst of int
-  | PIvar   of string
-  | PIbinop of int_binop * pint_expr * pint_expr
-  | PIunop  of num_unop * pint_expr
-
-type float_binop = Fadd | Fsub | Fmul | Fdiv
-
-type pfloat_expr =
-  | PFconst of float
-  | PFvar   of string
-  | PFbinop of float_binop * pfloat_expr * pfloat_expr
-  | PFunop  of num_unop * pfloat_expr
+type int_binop = Ipow
 
 type literal_binop = Lconcat
-
-type pchar_expr =
-  | PCconst of char
-  | PCvar   of string
-  | PCbinop of literal_binop * pchar_expr * pchar_expr
-
-type pstring_expr =
-  | PSconst of string
-  | PSvar   of string
-  | PSbinop of literal_binop * pstring_expr * pstring_expr
-
-type cmp = Beq | Bneq | Blt | Ble | Bgt | Bge
 
 type bool_unop = Bnot
 
 type bool_binop = Band | Bor
 
-type pbool_expr =
-  | PBbinop     of bool_binop * pbool_expr * pbool_expr
-  | PBunop      of bool_unop * pbool_expr
-  | PBintcmp    of cmp * pint_expr * pint_expr
-  | PBfloatcmp  of cmp * pfloat_expr * pfloat_expr
-  | PBcharcmp   of cmp * pchar_expr * pchar_expr
+type cmp = Beq | Bneq | Blt | Ble | Bgt | Bge
+
+type unop =
+  | Nunop of num_unop
+  | Bunop of bool_unop
+
+type binop =
+    Nbinop    of num_binop
+  | Ibinop    of int_binop
+  | Lbinop    of literal_binop
+  | Bbinop    of bool_binop
+  | Cmpbinop  of cmp
 
 type pexpr =
-  | PEint     of pint_expr
-  | PEfloat   of pfloat_expr
-  | PEchar    of pchar_expr
-  | PEstring  of pstring_expr
+    PEconst of const
+  | PEvar of string
+  | PEbinop of binop * pexpr * pexpr
+  | PEunop of unop * pexpr
 
 type pstmt =
   | PSassign of string * pexpr
-  | PSif     of pbool_expr * pstmt * pstmt
-  | PSwhile  of pbool_expr * pstmt
+  | PSif     of pexpr * pstmt * pstmt
+  | PSwhile  of pexpr * pstmt
   | PSblock  of pstmt list
   | PScall   of string * pexpr list
 
@@ -64,6 +58,7 @@ type formals = (string * by_reference * ttype) list
 
 type pprocedure =
   { pname    : string;
+    ptype    : ttype;
     pformals : formals;
     plocals  : pdecl list;
     pbody    : pstmt; }
@@ -77,54 +72,27 @@ type parsed_program = pprocedure
 type ident =
   { ident : string; level : int; offset : int; by_reference : by_reference }
 
-type int_expr =
-  | Iconst  of int
-  | Ivar    of ident
-  | Ibinop  of int_binop * int_expr * int_expr
-  | Iunop   of num_unop * int_expr
-  | Iaddr   of ident
-
-type float_expr =
-  | Fconst  of float
-  | Fvar    of ident
-  | Fbinop  of float_binop * float_expr * float_expr
-  | Funop   of num_unop * float_expr
-  | Faddr   of ident
-
-type char_expr =
-  | Cconst  of char
-  | Cvar    of ident
-  | Cbinop  of literal_binop * char_expr * char_expr
-  | Caddr   of ident
-
-type string_expr =
-  | Sconst  of string
-  | Svar    of ident
-  | Sbinop  of literal_binop * string_expr * string_expr
-  | Saddr   of ident
-
-type bool_expr =
-  | Bbinop    of bool_binop * bool_expr * bool_expr
-  | Bunop     of bool_unop * bool_expr
-  | Bintcmp   of cmp * int_expr * int_expr
-  | Bfloatcmp of cmp * float_expr * float_expr
-  | Bcharcmp  of cmp * char_expr * char_expr
-
 type expr =
-  | Eint    of int_expr
-  | Efloat  of float_expr
-  | Echar   of char_expr
-  | Estring of string_expr
+    Econst of const
+  | Evar of ident
+  | Ebinop of binop * expr * expr
+  | Eunop of unop * expr
+  | Eaddr of ident
+
+type texpr = {
+  etype: ttype;
+  eexpr: expr;
+}
 
 type pident = { proc_name : string; proc_level : int }
 
 type stmt =
-  | Sassign  of ident * expr
-  | Sif      of bool_expr * stmt * stmt
-  | Swhile   of bool_expr * stmt
+  | Sassign  of ident * texpr
+  | Sif      of texpr * stmt * stmt
+  | Swhile   of texpr * stmt
   | Sblock   of stmt list
-  | Scall    of pident * expr list
-  | Swriteln of expr
+  | Scall    of pident * texpr list
+  | Swriteln of texpr
 
 type procedure =
   { pident  : pident;
