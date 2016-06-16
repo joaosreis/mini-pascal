@@ -107,4 +107,9 @@ and decl =
 
 type typed_program = procedure
 
-val type_of_expr: expr -> ttype
+let type_of_expr = function
+    Econst (_, t, _) -> t
+  | Evar (_, t, _) -> t
+  | Ebinop (_, _, _, t) -> t
+  | Eunop (_, _, t) -> t
+  | Eaddr (_, t, _) -> t

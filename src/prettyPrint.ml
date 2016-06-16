@@ -13,11 +13,12 @@ let string_of_type = function
   | Standard t ->             string_of_std_type t
 
 let string_of_expr_pos e = let Position(s, e) = match e with
-      Econst(_, pos) -> pos
-    | Evar(_, pos) -> pos
-    | Ebinop(_, (_, Position(start_pos1, _)), (_, Position(_, end_pos2))) ->
+      Econst(_, _, pos) -> pos
+    | Evar(_, _, pos) -> pos
+    | Ebinop(_, (_, Position(start_pos1, _)), (_, Position(_, end_pos2)), _) ->
       Position(start_pos1, end_pos2)
-    | Eunop(_, (_, pos)) -> pos
+    | Eunop(_, (_, pos), _) -> pos
+    | Eaddr(_, _, pos) -> pos
   in Printf.sprintf "File \"%s\", line %d, characters %d-%d" s.pos_fname s.pos_lnum (s.pos_cnum - s.pos_bol) (e.pos_cnum - e.pos_bol)
 
 let string_of_operator = function

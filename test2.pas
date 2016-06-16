@@ -1,7 +1,8 @@
 program alors;
 
-var x : integer;
+
+var x, y, z : integer;
 
 begin
-    x:= 2; writeln(x)
+    x:= 7; y:=21; z:=y*x; writeln(z)
 end.

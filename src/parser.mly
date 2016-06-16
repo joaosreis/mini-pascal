@@ -128,10 +128,10 @@ formal:
   | VAR id=IDENT COLON t=types { id, true, t }
 
 binding:
-  | ids=separated_nonempty_list(COMMA, IDENT) COLON t=types { ids, t }
+  | ids=separated_nonempty_list(COMMA, IDENT) COLON t=types { List.map (fun a -> (a,t)) ids }
 
 terminated_bindings:
-  | bindings=terminated(binding, SEMICOLON)+ (* list is nonempty *){ bindings }
+  | bindings=terminated(binding, SEMICOLON)+ (* list is nonempty *){ List.flatten bindings }
 
 decl:
   | VAR vars=terminated_bindings  { PVar vars }
