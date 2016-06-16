@@ -1,5 +1,4 @@
 _build/
 main.byte
 main.native
-test.s
-test
+*.s
