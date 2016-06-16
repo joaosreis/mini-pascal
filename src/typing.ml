@@ -21,7 +21,7 @@ module Env = Map.Make(String)
 
 type env =
   { vars : (ident * ttype) Env.t;
-    procs : (pident * formals * ttype) Env.t }
+    procs : (pident * formals) Env.t }
 
 let resolve_binop e1 e2 = function
   | Nbinop op ->
@@ -112,7 +112,7 @@ let rec stmt env = function
   | PScall ("writeln", [e]) ->
     Swriteln (expression env e)
   | PScall (p, el) ->
-    let p,fl,t = try Env.find p env.procs with Not_found -> unbound_proc p in
+    let p,fl = try Env.find p env.procs with Not_found -> unbound_proc p in
     let a = List.length fl in
     if a <> List.length el then bad_arity p a;
     Scall (p, List.map2 (formal env) fl el)
@@ -127,15 +127,16 @@ let add_var x t lvl ofs br env =
 let rec decl lvl lofs env = function
   | PVar sl ->
     let add_var env (x,t) = lofs := !lofs - 8; add_var x t lvl !lofs false env in
-    Var sl, List.fold_left add_var env sl
+    let flatten l = List.flatten (List.map (fun (a,b) -> List.map (fun x -> (x,b)) a) l) in
+    Var sl, List.fold_left add_var env (flatten sl)
   | PProcedure p ->
     let id = { proc_name = unique p.pname; proc_level = lvl } in
     let lvl = lvl + 1 in
     let env =
-      { env with procs = Env.add p.pname (id, p.pformals, p.ptype) env.procs }
+      { env with procs = Env.add p.pname (id, p.pformals) env.procs }
     in
     let ofs = ref (24 + 8 * List.length p.pformals) in
-    let add_formal env (x,br) = ofs := !ofs - 8; add_var x lvl !ofs br env in
+    let add_formal env (x,br,t) = ofs := !ofs - 8; add_var x t lvl !ofs br env in
     let envp = List.fold_left add_formal env p.pformals in
     let decls, envp = decls lvl envp p.plocals in
     let p = { pident = id; formals = p.pformals;

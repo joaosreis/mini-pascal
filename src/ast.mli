@@ -58,7 +58,6 @@ type formals = (string * by_reference * ttype) list
 
 type pprocedure =
   { pname    : string;
-    ptype    : ttype;
     pformals : formals;
     plocals  : pdecl list;
     pbody    : pstmt; }
