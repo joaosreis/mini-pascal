@@ -10,23 +10,23 @@ let fresh_label =
   fun () -> incr r; "Label_" ^ string_of_int !r
 
 let rec int_expr lvl = function
-  | Econst n ->
+  | Econst (n, _) ->
     (match n with
      | Cint x -> movq (imm x) (reg rdi)
      | _ -> assert false)
-  | Evar { level = l; offset = ofs; by_reference = br } ->
+  | Evar ({ level = l; offset = ofs; by_reference = br }, _) ->
     movq (reg rbp) (reg rsi) ++
     iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
     movq (ind ~ofs rsi) (reg rdi) ++
     if br then movq (ind rdi) (reg rdi) else nop
-  | Eaddr { level = l; offset = ofs; by_reference = br } ->
+  | Eaddr ({ level = l; offset = ofs; by_reference = br }, _) ->
     movq (reg rbp) (reg rdi) ++
     iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
     addq (imm ofs) (reg rdi) ++
     if br then movq (ind rdi) (reg rdi) else nop
-  | Eunop (op, e) ->
+  | Eunop (op, (e, _)) ->
     int_expr lvl e (* TODO implement*)
-  | Ebinop (op, e0, e1) ->
+  | Ebinop (op, (e0, _), (e1, _)) ->
     int_expr lvl e1 ++ pushq (reg rdi) ++ int_expr lvl e0 ++
     (match op with
      | Nbinop o ->
@@ -41,7 +41,7 @@ let rec int_expr lvl = function
         | Ipow -> cqto (* TODO remove cqto and implement *))
      | _ -> assert false)
 
-let rec float_expr lvl = function Econst n -> label ""
+let rec float_expr lvl = function Econst (n, _) -> label ""
 (* TODO remove previous code and implement:
    function
    | Fconst n ->
@@ -67,10 +67,10 @@ let rec float_expr lvl = function Econst n -> label ""
    | Fdiv -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
              idivq (reg rdi) ++ movq (reg rax) (reg rdi)) *)
 
-let rec char_expr lvl = function Econst n -> label ""
+let rec char_expr lvl = function Econst (n, _) -> label ""
 (* TODO remove previous code and implement *)
 
-let rec string_expr lvl = function Econst n -> label ""
+let rec string_expr lvl = function Econst (n, _) -> label ""
 (* TODO remove previous code and implement *)
 
 let cmp_op = function
@@ -78,7 +78,7 @@ let cmp_op = function
   | Blt -> setl | Ble -> setle | Bgt -> setg | Bge -> setge
 
 (* compile la valeur de l'expression dans %rdi *)
-let rec bool_expr lvl = function Econst n -> label ""
+let rec bool_expr lvl = function Econst (n, _) -> label ""
   (* | Econst c -> label ""
   | Evar v -> label ""
   | Eaddr v -> label ""

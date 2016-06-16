@@ -64,8 +64,8 @@ rule read = parse
   | '"'           { read_string (Buffer.create 17) lexbuf }
   | "true"        { BOOL (true) }
   | "false"       { BOOL (false) }
-  | real as s     { FLOAT (float_of_string s) }
   | integer as s  { INT (int_of_string s) }
+  | real as s     { FLOAT (float_of_string s) }
 
   | eof           { raise (SyntaxError "reached end of file") }
   | _ as c        { raise (SyntaxError ("illegal character: " ^ String.make 1 c)) }

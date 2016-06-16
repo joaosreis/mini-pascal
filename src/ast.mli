@@ -1,3 +1,7 @@
+open Lexing
+
+type tposition = Position of position * position
+
 type tstring = TString | NString of int
 
 type standard_type = Integer | Real | Character | String of tstring | Boolean
@@ -39,11 +43,14 @@ type binop =
   | Bbinop    of bool_binop
   | Cmpbinop  of cmp
 
+type op = Binop of binop | Unop of unop
+
 type pexpr =
-    PEconst of const
-  | PEvar of string
-  | PEbinop of binop * pexpr * pexpr
-  | PEunop of unop * pexpr
+    PEconst of const * tposition
+  | PEvar of string * tposition
+  | PEbinop of binop * (pexpr * tposition) * (pexpr * tposition)
+  | PEunop of unop * (pexpr * tposition)
+
 
 type pstmt =
   | PSassign of string * pexpr
@@ -72,11 +79,11 @@ type ident =
   { ident : string; level : int; offset : int; by_reference : by_reference }
 
 type expr =
-    Econst of const
-  | Evar of ident
-  | Ebinop of binop * expr * expr
-  | Eunop of unop * expr
-  | Eaddr of ident
+    Econst of const * tposition
+  | Evar of ident * tposition
+  | Ebinop of binop * (expr * tposition) * (expr * tposition)
+  | Eunop of unop * (expr * tposition)
+  | Eaddr of ident * tposition
 
 type texpr = {
   etype: ttype;

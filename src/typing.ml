@@ -1,18 +1,20 @@
-
 open Ast
+open PrettyPrint
 
 let debug = ref false
 
 exception Error of string
 
 let error s = raise (Error s)
-let unbound_var x = error ("unbound variable " ^ x)
-let unbound_proc x = error ("unbound procedure " ^ x)
+let unbound_var v = error ("unbound variable " ^ v)
+let unbound_proc p = error ("unbound procedure " ^ p)
 let reference_expected x = error ("expecting a left value for formal " ^ x)
 let bad_arity p a =
   error ("bad arity: procedure p expects " ^ string_of_int a ^ " arguments")
-let invalid_operand x = error ("operator o expects operand of type t") (* TODO operator symbol and type *)
-let incompatible_types x y = error ("expected expression of type x but expression is of type y") (* TODO type *)
+let invalid_operand op t e =
+  error ("operator " ^ string_of_operator op ^ " expects operand of type " ^ t ^ "\n" ^ (string_of_expr_pos e.eexpr))
+let incompatible_types t1 t2 e =
+  error ("expected expression of type " ^ t1 ^ " but expression is of type " ^ t2 ^ "\n" ^ (string_of_expr_pos e))
 
 let unique =
   let r = ref 0 in fun s -> incr r; s ^ "__" ^ string_of_int !r
@@ -25,76 +27,82 @@ type env =
 
 let resolve_binop e1 e2 = function
   | Nbinop op ->
-    if (e1.etype != Standard(Integer) && e1.etype != Standard(Real)) ||
-       (e2.etype != Standard(Integer) && e2.etype != Standard(Real)) then
-      invalid_operand op
-    else if e1.etype != e2.etype then
-      incompatible_types e1.etype e2.etype
+    if e1.etype <> Standard(Integer) && e1.etype <> Standard(Real) then
+      invalid_operand (Binop (Nbinop op)) "numerical" e1
+    else if e2.etype <> Standard(Integer) && e2.etype <> Standard(Real) then
+      invalid_operand (Binop (Nbinop op)) "numerical" e2
+    else if e1.etype <> e2.etype then
+      incompatible_types (string_of_type e1.etype) (string_of_type e2.etype) e2.eexpr
     else
       e1.etype
   | Ibinop op ->
-    if e1.etype != Standard(Integer) || e2.etype != Standard(Integer) then
-      invalid_operand op
+    if e1.etype <> Standard(Integer) then
+      invalid_operand (Binop (Ibinop op)) "integer" e1
+    else if e2.etype <> Standard(Integer) then
+      invalid_operand (Binop (Ibinop op)) "integer" e2
     else
       Standard(Integer)
   | Lbinop op ->
-    (match e1.etype,e2.etype with
+    (match e1.etype, e2.etype with
      | Standard(Character),Standard(Character) -> Standard(Character)
      | Standard(String(_)),Standard(String(_)) -> Standard(String(TString))
-     | Standard(Character),_ -> incompatible_types e1.etype e2.etype
-     | Standard(String(_)),_ -> incompatible_types e1.etype e2.etype
-     | _ -> invalid_operand op)
+     | Standard(Character),_ -> incompatible_types (string_of_type e1.etype) (string_of_type e2.etype) e2.eexpr
+     | Standard(String(_)),_ -> incompatible_types (string_of_type e1.etype) (string_of_type e2.etype) e2.eexpr
+     | _ -> invalid_operand (Binop (Lbinop op)) "literal" e1)
   | Bbinop op ->
-    if e1.etype != Standard(Boolean) || e2.etype != Standard(Boolean) then
-      invalid_operand op
+    if e1.etype <> Standard(Boolean) then
+      invalid_operand (Binop (Bbinop op)) "bool" e1
+    else if e2.etype <> Standard(Boolean) then
+      invalid_operand (Binop (Bbinop op)) "bool" e2
     else
       Standard(Boolean)
   | Cmpbinop op ->
-    if (e1.etype != Standard(Integer) && e1.etype != Standard(Real) &&
-        e1.etype != Standard(Character)) ||
-       (e1.etype != Standard(Integer) && e1.etype != Standard(Real) &&
-        e1.etype != Standard(Character)) then
-      invalid_operand op
-    else if e1.etype != e2.etype then
-      incompatible_types e1.etype e2.etype
+    if e1.etype <> Standard(Integer) && e1.etype <> Standard(Real) &&
+       e1.etype <> Standard(Character) then
+      invalid_operand (Binop (Cmpbinop op)) "numerical or character" e1
+    else if e1.etype <> Standard(Integer) && e1.etype <> Standard(Real) &&
+            e1.etype <> Standard(Character) then
+      invalid_operand (Binop (Cmpbinop op)) "numerical or character" e2
+    else if e1.etype <> e2.etype then
+      incompatible_types (string_of_type e1.etype) (string_of_type e2.etype) e2.eexpr
     else
       Standard(Boolean)
 
 let resolve_unop e1 = function
   | Nunop op ->
-    if e1.etype != Standard(Integer) && e1.etype != Standard(Real) then
-      invalid_operand op
+    if e1.etype <> Standard(Integer) && e1.etype <> Standard(Real) then
+      invalid_operand (Unop (Nunop op)) "numerical" e1
     else
       e1.etype
   | Bunop op ->
-  if e1.etype != Standard(Boolean) then
-    invalid_operand op
+  if e1.etype <> Standard(Boolean) then
+    invalid_operand (Unop (Bunop op)) "bool" e1
   else
     Standard(Boolean)
 
 let rec expression env = function
-  | PEconst c -> (match c with
-      | Cint _ -> { etype=Standard(Integer); eexpr=Econst c }
-      | Cfloat _ -> { etype=Standard(Real); eexpr=Econst c }
-      | Cchar _ -> { etype=Standard(Character); eexpr=Econst c }
-      | Cstring _ -> { etype=Standard(String(TString)); eexpr=Econst c}
-      | Cbool _ -> { etype=Standard(Boolean); eexpr=Econst c }
-      | Carray a -> { etype=Array a; eexpr=Econst c; })
-  | PEvar v -> (try let s,t = Env.find v env.vars in { etype=t; eexpr=Evar s; } with Not_found -> unbound_var v)
-  | PEbinop (o, pe1, pe2) ->
+  | PEconst (c, pos) -> (match c with
+      | Cint _ -> { etype=Standard(Integer); eexpr=Econst (c, pos) }
+      | Cfloat _ -> { etype=Standard(Real); eexpr=Econst (c, pos) }
+      | Cchar _ -> { etype=Standard(Character); eexpr=Econst (c, pos) }
+      | Cstring _ -> { etype=Standard(String(TString)); eexpr=Econst (c, pos) }
+      | Cbool _ -> { etype=Standard(Boolean); eexpr=Econst (c, pos) }
+      | Carray a -> { etype=Array a; eexpr=Econst (c, pos); })
+  | PEvar (v, pos) -> (try let s,t = Env.find v env.vars in { etype=t; eexpr=Evar (s, pos); } with Not_found -> unbound_var v)
+  | PEbinop (o, (pe1, pos1), (pe2, pos2)) ->
     let e1 = expression env pe1 in
     let e2 = expression env pe2 in
-    { etype=resolve_binop e1 e2 o; eexpr=Ebinop(o, e1.eexpr, e2.eexpr); }
-  | PEunop (o, pe1) ->
-    let e1 = expression env pe1 in
-    { etype=resolve_unop e1 o; eexpr=Eunop(o, e1.eexpr) }
+    { etype=resolve_binop e1 e2 o; eexpr=Ebinop(o, (e1.eexpr, pos1), (e2.eexpr, pos2)); }
+  | PEunop (o, (pe, pos)) ->
+    let e = expression env pe in
+    { etype=resolve_unop e o; eexpr=Eunop(o, (e.eexpr, pos)) }
 
 let formal env (x,br,t) e =
   let te = expression env e in
-  if te.etype != t then
+  if te.etype <> t then
     error "Expected parameter of type t but got x"
   else if br then match te.eexpr with
-    | Evar x -> { etype=te.etype; eexpr=Eaddr x; }
+    | Evar (x, pos) -> { etype=te.etype; eexpr=Eaddr (x, pos); }
     | _ -> reference_expected x
   else
     te

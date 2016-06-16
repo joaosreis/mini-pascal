@@ -55,10 +55,10 @@ stmt_or_block:
   | b=block { b }
 
 expression:
-  | c=constant                          { PEconst c }
-  | id=IDENT                            { PEvar id }
-  | e1=expression o=binop e2=expression { PEbinop (o, e1, e2) }
-  | op=unop e=expression %prec uminus   { PEunop (op, e) }
+  | c=constant                          { PEconst (c, Position($startpos, $endpos)) }
+  | id=IDENT                            { PEvar (id, Position($startpos, $endpos)) }
+  | e1=expression o=binop e2=expression { PEbinop (o, (e1, Position($startpos(e1), $endpos(e1))), (e2, Position($startpos(e2), $endpos(e2)))) }
+  | op=unop e=expression %prec uminus   { PEunop (op, (e, Position($startpos(e), $endpos(e)))) }
   | LPAREN e=expression RPAREN          { e }
 ;
 
@@ -114,9 +114,9 @@ binop:
     | NOT { Bnot }
 
 condition:
-  | e1=expression c=cmp e2=expression       { PEbinop (Cmpbinop c, e1, e2) }
-  | c1=condition op=bool_binop c2=condition { PEbinop (Bbinop op, c1, c2) }
-  | op=bool_unop c1=condition               { PEunop (Bunop op, c1) }
+  | e1=expression c=cmp e2=expression       { PEbinop (Cmpbinop c, (e1, Position($startpos(e1), $endpos(e1))), (e2, Position($startpos(e2), $endpos(e2)))) }
+  | c1=condition op=bool_binop c2=condition { PEbinop (Bbinop op, (c1, Position($startpos(c1), $endpos(c1))), (c2, Position($startpos(c2), $endpos(c2)))) }
+  | op=bool_unop c1=condition               { PEunop (Bunop op, (c1, Position($startpos(c1), $endpos(c1)))) }
   | LPAREN c=condition RPAREN               { c }
 ;
 
@@ -134,8 +134,8 @@ terminated_bindings:
   | bindings=terminated(binding, SEMICOLON)+ (* list is nonempty *){ bindings }
 
 decl:
-  | VAR vars=terminated_bindings SEMICOLON  { PVar vars }
-  | p=procedure                             { PProcedure p }
+  | VAR vars=terminated_bindings  { PVar vars }
+  | p=procedure                   { PProcedure p }
 
 types:
   | t=standard_types LBRACKET s=INT RBRACKET  { Array (TArray (t,s)) }
