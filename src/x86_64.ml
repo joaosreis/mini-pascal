@@ -82,15 +82,26 @@ let r13b = "%r13b"
 let r14b = "%r14b"
 let r15b = "%r15b"
 
+let rip = "%rip"
+
+let xmm0 = "%xmm0"
+let xmm1 = "%xmm1"
+
 type label = string
 
 type 'size operand = formatter -> unit -> unit
 
+let immi i = fun fmt () -> fprintf fmt "%i" i
+let lc n r = fun fmt () -> fprintf fmt ".LC%d(%s)" n r
 let reg r = fun fmt () -> fprintf fmt "%s" r
 let imm i = fun fmt () -> fprintf fmt "$%i" i
+let fmm f = fun fmt () -> fprintf fmt "$%f" f
 let ind ?(ofs=0) ?index ?(scale=1) r = fun fmt () -> match index with
   | None -> fprintf fmt "%d(%s)" ofs r
   | Some r1 -> fprintf fmt "%d(%s,%s,%d)" ofs r r1 scale
+let inds lbl ?index ?(scale=1) r = fun fmt () -> match index with
+  | None -> fprintf fmt "%s(%s)" lbl r
+  | Some r1 -> fprintf fmt "%s(%s,%s,%d)" lbl r r1 scale
 let lab (l: label) = fun fmt () -> fprintf fmt "%s" l
 let ilab (l: label) = fun fmt () -> fprintf fmt "$%s" l
 
@@ -149,6 +160,8 @@ let movzbq a b = ins "movzbq %a, %s" a () b
 let movzwl a b = ins "movzwl %a, %s" a () b
 let movzwq a b = ins "movzwq %a, %s" a () b
 
+let movsd a b = ins "movsd %a, %a" a () b ()
+
 let leab op r = ins "leab %a, %s" op () r
 let leaw op r = ins "leaw %a, %s" op () r
 let leal op r = ins "leal %a, %s" op () r
@@ -173,6 +186,11 @@ let addb a b = ins "addb %a, %a" a () b ()
 let addw a b = ins "addw %a, %a" a () b ()
 let addl a b = ins "addl %a, %a" a () b ()
 let addq a b = ins "addq %a, %a" a () b ()
+
+let addsd a b = ins "addsd %a, %a" a () b ()
+let subsd a b = ins "subsd %a, %a" a () b ()
+let mulsd a b = ins "mulsd %a, %a" a () b ()
+let divsd a b = ins "divsd %a, %a" a () b ()
 
 let subb a b = ins "subb %a, %a" a () b ()
 let subw a b = ins "subw %a, %a" a () b ()
@@ -285,6 +303,12 @@ let space n = ins ".space %d" n
 
 let pushq a = ins "pushq %a" a ()
 let popq r = ins "popq %s" r
+
+let long a = ins ".long %a" a ()
+
+let cvtsi2sdq a b = ins "cvtsi2sdq %a, %a" a () b ()
+
+let xorpd a b = ins "xorpd %a, %a" a () b ()
 
 type program = {
   text : [ `text ] asm;

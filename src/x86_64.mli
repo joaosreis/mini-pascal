@@ -1,4 +1,4 @@
-
+open Format
 (** {0 Bibliothèque pour l'écriture de programmes X86-64 }
 
     Il s'agit là uniquement d'un fragment relativement petit
@@ -127,7 +127,12 @@ val r12b: [`B] register
 val r13b: [`B] register
 val r14b: [`B] register
 val r15b: [`B] register
-  (** registres 8 bits *)
+(** registres 8 bits *)
+
+val rip: [`Q] register
+
+val xmm0: [`Q] register
+val xmm1: [`Q] register
 
 (** {1 Opérandes } *)
 
@@ -135,12 +140,17 @@ type 'size operand
   (** Le type abstrait des opérandes *)
 
 val imm: int -> [>] operand
-  (** opérande immédiate $i *)
+val fmm: float -> [>] operand
+(** opérande immédiate $i *)
+val immi: int -> [>] operand
+val lc: int -> 'size register -> 'size operand
 val reg: 'size register -> 'size operand
   (** registre *)
 val ind: ?ofs:int -> ?index:'size1 register -> ?scale:int ->
   'size2 register -> [>] operand
-  (** opérande indirecte ofs(register, index, scale) *)
+(** opérande indirecte ofs(register, index, scale) *)
+val inds: string -> ?index:'size1 register -> ?scale:int ->
+  'size2 register -> [>] operand
 val lab: label -> [>] operand
   (** étiquette L  *)
 val ilab: label -> [`Q] operand
@@ -167,7 +177,9 @@ val movzbl: [`B] operand -> [`L] register -> text
 val movzbq: [`B] operand -> [`Q] register -> text
 val movzwl: [`W] operand -> [`L] register -> text
 val movzwq: [`W] operand -> [`Q] register -> text
-  (** 8->64 bit, avec extension par zéro *)
+(** 8->64 bit, avec extension par zéro *)
+
+val movsd: [`Q] operand -> [`Q] operand -> text
 
 val movabsq: int64 -> [`Q] register -> text
   (** copie une valeur immédiate 64 bits dans un registre *)
@@ -198,6 +210,11 @@ val addb: [`B] operand -> [`B] operand -> text
 val addw: [`W] operand -> [`W] operand -> text
 val addl: [`L] operand -> [`L] operand -> text
 val addq: [`Q] operand -> [`Q] operand -> text
+
+val addsd: [`Q] operand -> [`Q] operand -> text
+val subsd: [`Q] operand -> [`Q] operand -> text
+val mulsd: [`Q] operand -> [`Q] operand -> text
+val divsd: [`Q] operand -> [`Q] operand -> text
 
 val subb: [`B] operand -> [`B] operand -> text
 val subw: [`W] operand -> [`W] operand -> text
@@ -317,6 +334,12 @@ val pushq : [`Q] operand -> text
 val popq : [`Q] register -> text
   (** [popq r] place le mot en sommet de pile dans [r] et dépile *)
 
+val long: [`Q] operand -> text
+
+val cvtsi2sdq: [`Q] operand -> [`Q] operand -> text
+
+val xorpd: [`Q] operand -> [`Q] operand -> text
+
 (** {2 Divers } *)
 
 val label : label -> [> ] asm
@@ -343,3 +366,4 @@ val address: label list -> data
 val space: int -> data
   (** [space n] alloue [n] octets (valant 0) dans le segment de données *)
 
+val ins : ('a, formatter, unit, 'b asm) format4 -> 'a

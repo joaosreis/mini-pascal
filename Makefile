@@ -9,9 +9,9 @@
 
 # - we are using menhir, the modern replacement for OCamlYacc
 # OCB_FLAGS = -use-ocamlfind             -I src -I lib # uses ocamlyacc
-OCB_FLAGS   = -use-ocamlfind -use-menhir -menhir "menhir --explain" -I src -I lib # uses menhir
+OCB_FLAGS = -use-ocamlfind -use-menhir -menhir "menhir --explain" -I src -I lib # uses menhir
 
-OCB = 		ocamlbuild $(OCB_FLAGS)
+OCB = ocamlbuild $(OCB_FLAGS)
 
 BIN = main.native
 
