@@ -197,11 +197,11 @@ let frame_size dl =
 let procedure p =
   Format.eprintf "procedure %s at level %d@."
     p.pident.proc_name p.pident.proc_level;
-  let fs = 16 + frame_size p.locals in
+  let fs = 8 + frame_size p.locals in
   label (symb p.pident.proc_name) ++
   subq (imm fs) (reg rsp) ++                (* alloue la frame *)
-  movq (reg rbp) (ind ~ofs:(fs - 16) rsp) ++ (* sauve rbp *)
-  leaq (ind ~ofs:(fs - 16) rsp) rbp ++       (* rbp = rsp + fs - 16 *)
+  movq (reg rbp) (ind ~ofs:(fs - 8) rsp) ++ (* sauve rbp *)
+  leaq (ind ~ofs:(fs - 8) rsp) rbp ++       (* rbp = rsp + fs - 16 *)
   stmt (p.pident.proc_level + 1) p.body ++
   movq (reg rbp) (reg rsp) ++ popq rbp ++ ret (* = leave ++ ret *)
 
