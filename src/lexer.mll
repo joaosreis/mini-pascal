@@ -39,7 +39,8 @@ rule read = parse
   | newline       { next_line lexbuf; read lexbuf }
   | space+        { read lexbuf }
   | ident as id   { id_or_kwd id }
-  | "**"          { EXP }
+  | '^'           { EXP }
+  | "++"          { CONCAT }
   | '+'           { PLUS }
   | '-'           { MINUS }
   | '*'           { TIMES }

@@ -9,7 +9,7 @@
 %token <string> IDENT
 %token COMMA DOT IF THEN PROGRAM COLONEQ BEGIN END ELSE PROCEDURE
 %token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING VAR COLON SEMICOLON WHILE DO /*TYPE RECORD*/
-%token EXP PLUS MINUS TIMES DIV AND OR NOT
+%token EXP PLUS MINUS TIMES DIV CONCAT AND OR NOT
 %token EQ NEQ LT LE GT GE
 
 %left OR
@@ -18,6 +18,7 @@
 %left EXP
 %left MINUS PLUS
 %left TIMES DIV
+%left CONCAT
 %nonassoc uminus
 %nonassoc THEN
 %nonassoc ELSE
@@ -59,7 +60,7 @@ expression:
   | LPAREN e=expression RPAREN          { e }
 ;
 
-constant:
+%inline constant:
   | c=INT     { Cint c }
   | c=FLOAT   { Cfloat c }
   | c=CHAR    { Cchar c }
@@ -82,7 +83,7 @@ binop:
 ;
 
 %inline literal_binop:
-  | PLUS  { Lconcat }
+  | CONCAT  { Lconcat }
 
 %inline bool_binop:
   | AND { Band }
@@ -134,9 +135,12 @@ types:
   | t=standard_types LBRACKET s=INT RBRACKET  { Array (TArray (t,s)) }
   | t=standard_types                          { Standard t }
 
-%inline standard_types:
+standard_types:
+  | s=string                        { String s }
   | INTEGER                         { Integer }
   | REAL                            { Real }
   | CHARACTER                       { Character }
-  | TSTRING LBRACKET s=INT RBRACKET { String (NString s) }
-  | TSTRING                         { String (NString 255) }
+
+%inline string:
+  | TSTRING                         { NString 255 }
+  | TSTRING s=INT                   { NString s }
