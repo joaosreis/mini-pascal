@@ -6,12 +6,9 @@
 %token <float> FLOAT
 %token <char> CHAR
 %token <string> STRING
-%token <bool> BOOL
 %token <string> IDENT
-%token TRUE
-%token FALSE
 %token COMMA DOT IF THEN PROGRAM COLONEQ BEGIN END ELSE PROCEDURE
-%token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING BOOLEAN VAR COLON SEMICOLON WHILE DO TYPE RECORD
+%token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING VAR COLON SEMICOLON WHILE DO /*TYPE RECORD*/
 %token EXP PLUS MINUS TIMES DIV AND OR NOT
 %token EQ NEQ LT LE GT GE
 
@@ -67,14 +64,11 @@ constant:
   | c=FLOAT   { Cfloat c }
   | c=CHAR    { Cchar c }
   | c=STRING  { Cstring c }
-  | c=BOOL    { Cbool c }
 
 binop:
   | o=num_binop     { Nbinop(o) }
   | o=int_binop     { Ibinop(o) }
   | o=literal_binop { Lbinop(o) }
-  | o=bool_binop    { Bbinop(o) }
-  | o=cmp           { Cmpbinop(o) }
 
 %inline num_binop:
   | PLUS  { Nadd }
@@ -90,7 +84,7 @@ binop:
 %inline literal_binop:
   | PLUS  { Lconcat }
 
-  %inline bool_binop:
+%inline bool_binop:
   | AND { Band }
   | OR  { Bor }
 
@@ -105,7 +99,6 @@ binop:
 
 %inline unop:
   | o=num_unop   { Nunop(o) }
-  | o=bool_unop  { Bunop(o) }
 
 %inline num_unop:
   | MINUS { Nneg }
@@ -114,9 +107,9 @@ binop:
     | NOT { Bnot }
 
 condition:
-  | e1=expression c=cmp e2=expression       { PEbinop (Cmpbinop c, (e1, Position($startpos(e1), $endpos(e1))), (e2, Position($startpos(e2), $endpos(e2)))) }
-  | c1=condition op=bool_binop c2=condition { PEbinop (Bbinop op, (c1, Position($startpos(c1), $endpos(c1))), (c2, Position($startpos(c2), $endpos(c2)))) }
-  | op=bool_unop c1=condition               { PEunop (Bunop op, (c1, Position($startpos(c1), $endpos(c1)))) }
+  | e1=expression c=cmp e2=expression       { PBcmp (c, e1, e2) }
+  | c1=condition op=bool_binop c2=condition { PBbinop (op, c1, c2) }
+  | op=bool_unop c1=condition               { PBunop (op, c1) }
   | LPAREN c=condition RPAREN               { c }
 ;
 
@@ -147,4 +140,3 @@ types:
   | CHARACTER                       { Character }
   | TSTRING LBRACKET s=INT RBRACKET { String (NString s) }
   | TSTRING                         { String (NString 255) }
-  | BOOLEAN                         { Boolean }

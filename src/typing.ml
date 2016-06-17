@@ -1,7 +1,7 @@
 open Ast
 open PrettyPrint
 
-let debug = ref false
+let debug = ref true
 
 exception Error of string
 
@@ -12,7 +12,7 @@ let reference_expected x = error ("expecting a left value for formal " ^ x)
 let bad_arity p a =
   error ("bad arity: procedure p expects " ^ string_of_int a ^ " arguments")
 let invalid_operand op t e =
-  error ("operator " ^ string_of_operator op ^ " expects operand of type " ^ t ^ "\n" ^ (string_of_expr_pos e))
+  error ("operator " ^ string_of_operator op ^ " expects operand of type " ^ t ^ " but got " ^ string_of_type (type_of_expr e) ^ "\n" ^ string_of_expr_pos e)
 let incompatible_types t1 t2 e =
   error ("expected expression of type " ^ t1 ^ " but expression is of type " ^ t2 ^ "\n" ^ (string_of_expr_pos e))
 
@@ -52,24 +52,6 @@ let resolve_binop e1 e2 op =
      | Standard(Character),_ -> incompatible_types (string_of_type t1) (string_of_type t2) e2
      | Standard(String(_)),_ -> incompatible_types (string_of_type t1) (string_of_type t2) e2
      | _ -> invalid_operand (Binop (Lbinop op)) "literal" e1)
-  | Bbinop op ->
-    if t1 <> Standard(Boolean) then
-      invalid_operand (Binop (Bbinop op)) "bool" e1
-    else if t2 <> Standard(Boolean) then
-      invalid_operand (Binop (Bbinop op)) "bool" e2
-    else
-      Standard(Boolean)
-  | Cmpbinop op ->
-    if t1 <> Standard(Integer) && t1 <> Standard(Real) &&
-       t1 <> Standard(Character) then
-      invalid_operand (Binop (Cmpbinop op)) "numerical or character" e1
-    else if t1 <> Standard(Integer) && t1 <> Standard(Real) &&
-            t1 <> Standard(Character) then
-      invalid_operand (Binop (Cmpbinop op)) "numerical or character" e2
-    else if t1 <> t2 then
-      incompatible_types (string_of_type t1) (string_of_type t2) e2
-    else
-      Standard(Boolean)
 
 let resolve_unop e1 op =
   let t1 = type_of_expr e1 in
@@ -79,11 +61,6 @@ let resolve_unop e1 op =
       invalid_operand (Unop (Nunop op)) "numerical" e1
     else
       t1
-  | Bunop op ->
-    if t1 <> Standard(Boolean) then
-      invalid_operand (Unop (Bunop op)) "bool" e1
-    else
-      Standard(Boolean)
 
 let rec expression env = function
   | PEconst (c, pos) -> (match c with
@@ -91,7 +68,6 @@ let rec expression env = function
       | Cfloat _ -> Econst (c, Standard(Real), pos)
       | Cchar _ -> Econst (c, Standard(Character), pos)
       | Cstring _ -> Econst (c, Standard(String(TString)), pos)
-      | Cbool _ -> Econst (c, Standard(Boolean), pos)
       | Carray a -> Econst (c, Array a, pos))
   | PEvar (v, pos) -> (try let s,t = Env.find v env.vars in Evar (s, t, pos) with Not_found -> unbound_var v)
   | PEbinop (o, (pe1, pos1), (pe2, pos2)) ->
@@ -104,11 +80,16 @@ let rec expression env = function
     let t = resolve_unop e o in
     Eunop(o, (e, pos), t)
 
+let rec bool_expr env = function
+    PBunop (op, e) -> Bunop (op, bool_expr env e)
+  | PBbinop (op, e0, e1) -> Bbinop (op, bool_expr env e0, bool_expr env e1)
+  | PBcmp (o, e0, e1) -> Bcmp (o, expression env e0, expression env e1)
+
 let formal env (x,br,t) e =
   let te = expression env e in
   let tt = type_of_expr te in
   if tt <> t then
-    error "Expected parameter of type t but got x"
+    error ("Expected parameter of type " ^ string_of_type t ^ " but got " ^ string_of_type tt)
   else if br then match te with
     | Evar (x, _, pos) -> Eaddr (x, tt, pos)
     | _ -> reference_expected x
@@ -119,14 +100,10 @@ let rec stmt env = function
   | PSassign (x, e) ->
     let x,_ = try Env.find x env.vars with Not_found -> unbound_var x in
     Sassign (x, expression env e)
-  | PSif (b, s1, s2) ->
-    Sif (expression env b, stmt env s1, stmt env s2)
-  | PSwhile (b, s1) ->
-    Swhile (expression env b, stmt env s1)
-  | PSblock sl ->
-    Sblock (List.map (stmt env) sl)
-  | PScall ("writeln", [e]) ->
-    Swriteln (expression env e)
+  | PSif (b, s1, s2) -> Sif (bool_expr env b, stmt env s1, stmt env s2)
+  | PSwhile (b, s1) -> Swhile (bool_expr env b, stmt env s1)
+  | PSblock sl -> Sblock (List.map (stmt env) sl)
+  | PScall ("writeln", [e]) -> Swriteln (expression env e)
   | PScall (p, el) ->
     let p,fl = try Env.find p env.procs with Not_found -> unbound_proc p in
     let a = List.length fl in

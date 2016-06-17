@@ -52,58 +52,34 @@ let rec expression lvl e =
 
   in let rec string_expr lvl = function Econst (n, _, _) -> label ""
 
-  in let rec bool_expr lvl = function
-        Econst (c, _, _) -> (match c with
-            Cbool b ->
-            if b then
-              movq (imm 0) (reg rdi)
-            else
-              movq (imm 1) (reg rdi)
-          | _ -> assert false)
-      | Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
-        movq (reg rbp) (reg rsi) ++
-        iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
-        movq (ind ~ofs rsi) (reg rdi) ++
-        if br then movq (ind rdi) (reg rdi) else nop
-      | Eaddr ({ level = l; offset = ofs; by_reference = br }, _, _) ->
-        movq (reg rbp) (reg rdi) ++
-        iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
-        addq (imm ofs) (reg rdi) ++
-        if br then movq (ind rdi) (reg rdi) else nop
-      | Eunop (op, (e, _), _) ->
-        (match op with
-           Bunop o ->
-           (match o with
-              Bnot ->
-              expression lvl e ++ testq (reg rdi) (reg rdi) ++
-              sete (reg dil) ++ movzbq (reg dil) rdi)
-         | _ -> assert false)
-      | Ebinop (op, (e0, _), (e1, _), _) ->
-        (match op with
-           Bbinop o ->
-           (match o with
-            | Band ->
-            let lab = fresh_label () in
-            expression lvl e0 ++
-            testq (reg rdi) (reg rdi) ++ je lab ++ expression lvl e1 ++ label lab
-            | Bor ->
-              let lab = fresh_label () in
-              expression lvl e0 ++
-              testq (reg rdi) (reg rdi) ++ jne lab ++ expression lvl e1 ++ label lab)
-         | Cmpbinop o ->
-           expression lvl e0 ++ pushq (reg rdi) ++
-           expression lvl e1 ++ popq rsi ++ cmpq (reg rdi) (reg rsi) ++
-           (cmp_op o) (reg dil) ++
-           movzbq (reg dil) rdi
-         | _ -> assert false)
-
   in match (type_of_expr e) with
   | Standard(Integer) -> int_expr lvl e
   | Standard(Real) -> float_expr lvl e
   | Standard(Character) -> char_expr lvl e
   | Standard(String(_)) -> string_expr lvl e
-  | Standard(Boolean) -> bool_expr lvl e
   | _ -> (* TODO array *) label ""
+
+let rec bool_expr lvl = function
+    Bunop (op, e) ->
+    (match op with
+       Bnot ->
+       bool_expr lvl e ++ testq (reg rdi) (reg rdi) ++
+       sete (reg dil) ++ movzbq (reg dil) rdi)
+  | Bbinop (op, e0, e1) ->
+    (match op with
+     | Band ->
+       let lab = fresh_label () in
+       bool_expr lvl e0 ++
+       testq (reg rdi) (reg rdi) ++ je lab ++ bool_expr lvl e1 ++ label lab
+     | Bor ->
+       let lab = fresh_label () in
+       bool_expr lvl e0 ++
+       testq (reg rdi) (reg rdi) ++ jne lab ++ bool_expr lvl e1 ++ label lab)
+  | Bcmp (o, e0, e1) ->
+    expression lvl e0 ++ pushq (reg rdi) ++
+    expression lvl e1 ++ popq rsi ++ cmpq (reg rdi) (reg rsi) ++
+    (cmp_op o) (reg dil) ++
+    movzbq (reg dil) rdi
 
 let popn n = addq (imm (8 * n)) (reg rsp)
 
@@ -115,7 +91,6 @@ let rec stmt lvl = function
      | Standard(Real) -> e1 ++ call "print_float"
      | Standard(Character) -> e1 ++ call "print_char"
      | Standard(String(_)) -> e1 ++ call "print_string"
-     | Standard(Boolean) -> e1 ++ call "print_bool"
      | _ -> (* TODO array *) label "")
   | Scall ({proc_name = id; proc_level = l}, el) ->
     List.fold_left
@@ -138,19 +113,17 @@ let rec stmt lvl = function
        e1 (* TODO implement *)
      | Standard(String(_)) ->
        e1 (* TODO implement *)
-     | Standard(Boolean) ->
-       e1 (* TODO implement *)
      | _ -> (* TODO array *) e1 (* TODO implement *))
   | Sif (e, s1, s2) ->
     let l_else = fresh_label () in
     let l_done = fresh_label () in
-    expression lvl e ++
+    bool_expr lvl e ++
     testq (reg rdi) (reg rdi) ++ jz l_else ++
     stmt lvl s1 ++ jmp l_done ++ label l_else ++ stmt lvl s2 ++ label l_done
   | Swhile (e, s) ->
     let l_test = fresh_label () in
     let l_done = fresh_label () in
-    label l_test ++ expression lvl e ++
+    label l_test ++ bool_expr lvl e ++
     testq (reg rdi) (reg rdi) ++ jz l_done ++
     stmt lvl s ++ jmp l_test ++ label l_done
   | Sblock sl ->

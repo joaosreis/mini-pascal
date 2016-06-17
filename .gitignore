@@ -1,4 +1,5 @@
 _build/
 main.byte
 main.native
-*.s
+tests/*.s
+a.out

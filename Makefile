@@ -9,13 +9,15 @@
 
 # - we are using menhir, the modern replacement for OCamlYacc
 # OCB_FLAGS = -use-ocamlfind             -I src -I lib # uses ocamlyacc
-OCB_FLAGS   = -use-ocamlfind -use-menhir -I src -I lib # uses menhir
+OCB_FLAGS   = -use-ocamlfind -use-menhir -menhir "menhir --explain" -I src -I lib # uses menhir
 
 OCB = 		ocamlbuild $(OCB_FLAGS)
 
+BIN = main.native
+
 all: 		native byte # profile debug
 
-clean:
+clean:		clean_tests
 			$(OCB) -clean
 
 native:  	sanity
@@ -34,9 +36,13 @@ sanity:
 			# check that menhir is installed, use "opam install menhir"
 			which menhir
 
-test: 		native
-			./main.native test2.pas
-			gcc test2.s -o test2
-			./test2
+tests:		native clean_tests
+	@for f in tests/*.pas; do \
+	echo "===== testing $$f ============"; \
+	./$(BIN) $$f && gcc tests/`basename $$f .pas`.s && ./a.out; done
+
+clean_tests:
+	rm -f tests/*.s
+	rm -f a.out
 
 .PHONY: 	all clean byte native profile debug sanity test

@@ -4,7 +4,7 @@ type tposition = Position of position * position
 
 type tstring = TString | NString of int
 
-type standard_type = Integer | Real | Character | String of tstring | Boolean
+type standard_type = Integer | Real | Character | String of tstring
 
 type tarray = TArray of standard_type * int
 
@@ -15,7 +15,6 @@ type const =
   | Cfloat of float
   | Cchar of char
   | Cstring of string
-  | Cbool of bool
   | Carray of tarray
 
 type num_unop = Nneg
@@ -34,14 +33,11 @@ type cmp = Beq | Bneq | Blt | Ble | Bgt | Bge
 
 type unop =
   | Nunop of num_unop
-  | Bunop of bool_unop
 
 type binop =
     Nbinop    of num_binop
   | Ibinop    of int_binop
   | Lbinop    of literal_binop
-  | Bbinop    of bool_binop
-  | Cmpbinop  of cmp
 
 type op = Binop of binop | Unop of unop
 
@@ -51,11 +47,15 @@ type pexpr =
   | PEbinop of binop * (pexpr * tposition) * (pexpr * tposition)
   | PEunop of unop * (pexpr * tposition)
 
+  type pbool_expr =
+      PBcmp    of cmp * pexpr * pexpr
+    | PBbinop  of bool_binop * pbool_expr * pbool_expr
+    | PBunop   of bool_unop * pbool_expr
 
 type pstmt =
   | PSassign of string * pexpr
-  | PSif     of pexpr * pstmt * pstmt
-  | PSwhile  of pexpr * pstmt
+  | PSif     of pbool_expr * pstmt * pstmt
+  | PSwhile  of pbool_expr * pstmt
   | PSblock  of pstmt list
   | PScall   of string * pexpr list
 
@@ -85,12 +85,17 @@ type expr =
   | Eunop of unop * (expr * tposition) * ttype
   | Eaddr of ident * ttype * tposition
 
+  type bool_expr =
+      Bcmp    of cmp * expr * expr
+    | Bbinop  of bool_binop * bool_expr * bool_expr
+    | Bunop   of bool_unop * bool_expr
+
 type pident = { proc_name : string; proc_level : int }
 
 type stmt =
   | Sassign  of ident * expr
-  | Sif      of expr * stmt * stmt
-  | Swhile   of expr * stmt
+  | Sif      of bool_expr * stmt * stmt
+  | Swhile   of bool_expr * stmt
   | Sblock   of stmt list
   | Scall    of pident * expr list
   | Swriteln of expr

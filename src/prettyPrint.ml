@@ -6,7 +6,6 @@ let string_of_std_type = function
   | Real ->       "real"
   | Character ->  "char"
   | String(_) ->  "string"
-  | Boolean ->    "bool"
 
 let string_of_type = function
     Array (TArray (t, _)) ->  string_of_std_type t ^ " array"
@@ -31,19 +30,7 @@ let string_of_operator = function
     | Ibinop o -> (match o with
           Ipow -> "**")
     | Lbinop o -> (match o with
-          Lconcat -> "+")
-    | Bbinop o -> (match o with
-          Band -> "and"
-        | Bor -> "or")
-    | Cmpbinop o -> (match o with
-          Beq -> "=="
-        | Bneq -> "<>"
-        | Blt -> "<"
-        | Ble -> "<="
-        | Bgt -> ">"
-        | Bge -> ">="))
+          Lconcat -> "+"))
   | Unop op -> (match op with
         Nunop o -> (match o with
-            Nneg -> "-")
-      | Bunop o -> (match o with
-            Bnot -> "!"))
+            Nneg -> "-"))
