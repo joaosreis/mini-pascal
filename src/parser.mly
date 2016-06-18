@@ -19,7 +19,7 @@
 %left MINUS PLUS
 %left TIMES DIV
 %left CONCAT
-%left uminus
+%nonassoc uminus
 %nonassoc THEN
 %nonassoc ELSE
 

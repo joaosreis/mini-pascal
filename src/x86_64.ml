@@ -161,6 +161,7 @@ let movzwl a b = ins "movzwl %a, %s" a () b
 let movzwq a b = ins "movzwq %a, %s" a () b
 
 let movsd a b = ins "movsd %a, %a" a () b ()
+let movapd a b = ins "movapd %a, %a" a () b ()
 
 let leab op r = ins "leab %a, %s" op () r
 let leaw op r = ins "leaw %a, %s" op () r

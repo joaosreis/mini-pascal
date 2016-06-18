@@ -81,14 +81,16 @@ let rec expression lvl e =
         movq (imm 8000000000000000) (reg rsi) ++ cvtsi2sdq (reg rsi) (reg xmm1) ++
         xorpd (reg xmm1) (reg xmm0) (* FIXME not working *)
       | Ebinop (op, (e0, _), (e1, _), _) ->
-        expression lvl e1 ++ movsd (reg xmm0) (reg xmm1) ++ expression lvl e0 ++
+        expression lvl e1 ++
+        movq (reg xmm0) (reg rdi) ++ pushq (reg rdi) ++
+        expression lvl e0 ++
         (match op with
          | Nbinop o ->
            (match o with
-            | Nadd -> addsd (reg xmm1) (reg xmm0)
-            | Nsub -> subsd (reg xmm1) (reg xmm0)
-            | Nmul -> mulsd (reg xmm1) (reg xmm0)
-            | Ndiv -> divsd (reg xmm1) (reg xmm0))
+            | Nadd -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ addsd (reg xmm1) (reg xmm0)
+            | Nsub -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ subsd (reg xmm1) (reg xmm0)
+            | Nmul -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ mulsd (reg xmm1) (reg xmm0)
+            | Ndiv -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ divsd (reg xmm1) (reg xmm0))
          | _ -> assert false)
 
   in let rec char_expr lvl = function
