@@ -66,7 +66,7 @@ expression:
   | c=CHAR    { Cchar c }
   | c=STRING  { Cstring c }
 
-binop:
+%inline binop:
   | o=num_binop     { Nbinop(o) }
   | o=int_binop     { Ibinop(o) }
   | o=literal_binop { Lbinop(o) }
