@@ -26,9 +26,8 @@ let string_of_operator = function
         Nadd -> "+"
       | Nsub -> "-"
       | Nmul -> "*"
-      | Ndiv -> "/")
-    | Ibinop o -> (match o with
-          Ipow -> "**")
+      | Ndiv -> "/"
+      | Npow -> "**")
     | Lbinop o -> (match o with
           Lconcat -> "+"))
   | Unop op -> (match op with

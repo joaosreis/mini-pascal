@@ -19,9 +19,7 @@ type const =
 
 type num_unop = Nneg
 
-type num_binop = Nadd | Nsub | Nmul | Ndiv
-
-type int_binop = Ipow
+type num_binop = Nadd | Nsub | Nmul | Ndiv | Npow
 
 type literal_binop = Lconcat
 
@@ -36,7 +34,6 @@ type unop =
 
 type binop =
     Nbinop    of num_binop
-  | Ibinop    of int_binop
   | Lbinop    of literal_binop
 
 type op = Binop of binop | Unop of unop

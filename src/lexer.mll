@@ -28,7 +28,7 @@ let next_line lexbuf =
 let letter = ['a'-'z' 'A'-'Z']
 let digit = ['0'-'9']
 let ident = letter+ digit*
-let character = "''" letter "'"
+let character = ''' letter | digit '''
 let integer = ['0'-'9']+
 let frac = '.' digit*
 let real = digit* frac?
@@ -36,34 +36,35 @@ let space = [' ' '\t']
 let newline = '\r' | '\n' | "\r\n"
 
 rule read = parse
-  | newline       { next_line lexbuf; read lexbuf }
-  | space+        { read lexbuf }
-  | ident as id   { id_or_kwd id }
-  | '^'           { EXP }
-  | "++"          { CONCAT }
-  | '+'           { PLUS }
-  | '-'           { MINUS }
-  | '*'           { TIMES }
-  | '/'           { DIV }
-  | '='           { EQ }
-  | "<>"          { NEQ }
-  | '<'           { LT }
-  | "<="          { LE }
-  | '>'           { GT }
-  | ">="          { GE }
-  | '('           { LPAREN }
-  | ')'           { RPAREN }
-  | '['           { LBRACKET }
-  | ']'           { RBRACKET }
-  | '.'           { DOT }
-  | ','           { COMMA }
-  | ':'           { COLON }
-  | ":="          { COLONEQ }
-  | ";"           { SEMICOLON }
-  | "(*" | "{"    { comment lexbuf }
-  | '"'           { read_string (Buffer.create 17) lexbuf }
-  | integer as s  { INT (int_of_string s) }
-  | real as s     { FLOAT (float_of_string s) }
+  | newline         { next_line lexbuf; read lexbuf }
+  | space+          { read lexbuf }
+  | ident as id     { id_or_kwd id }
+  | '^'             { EXP }
+  | "++"            { CONCAT }
+  | '+'             { PLUS }
+  | '-'             { MINUS }
+  | '*'             { TIMES }
+  | '/'             { DIV }
+  | '='             { EQ }
+  | "<>"            { NEQ }
+  | '<'             { LT }
+  | "<="            { LE }
+  | '>'             { GT }
+  | ">="            { GE }
+  | '('             { LPAREN }
+  | ')'             { RPAREN }
+  | '['             { LBRACKET }
+  | ']'             { RBRACKET }
+  | '.'             { DOT }
+  | ','             { COMMA }
+  | ':'             { COLON }
+  | ":="            { COLONEQ }
+  | ";"             { SEMICOLON }
+  | "(*" | "{"      { comment lexbuf }
+  | '"'             { read_string (Buffer.create 17) lexbuf }
+  | integer as s    { INT (int_of_string s) }
+  | real as s       { FLOAT (float_of_string s) }
+  | ''' ((letter | digit) as c) ''' { CHAR (c) }
 
   | eof           { raise (SyntaxError "reached end of file") }
   | _ as c        { raise (SyntaxError ("illegal character: " ^ String.make 1 c)) }

@@ -34,6 +34,26 @@ let cmp_op = function
   | Beq -> sete | Bneq -> setne
   | Blt -> setl | Ble -> setle | Bgt -> setg | Bge -> setge
 
+let int_pow =
+  label "int_pow" ++
+  pushq (reg rbp) ++
+  movq (reg rsp) (reg rbp) ++
+  movq (imm 1) (reg rax) ++ (* rax -> y = 1 *)
+  movq (reg rdi) (reg rbx) ++ (* rbx -> p = x *)
+  label "ipow_loop" ++
+  movq (imm 1) (reg rcx) ++
+  testq (reg rsi) (reg rcx) ++
+  jz "j1" ++
+  imulq (reg rbx) (reg rax) ++
+  label "j1" ++
+  shrq (imm 1) (reg rsi) ++
+  jnz "j2" ++
+  movq (reg rax) (reg rdi) ++
+  leave ++ ret ++
+  label "j2" ++
+  imulq (reg rbx) (reg rbx) ++
+  jmp "ipow_loop"
+
 let rec expression lvl e =
   let rec int_expr lvl = function
       Econst (n, _, _) ->
@@ -51,7 +71,7 @@ let rec expression lvl e =
       addq (imm ofs) (reg rdi) ++
       if br then movq (ind rdi) (reg rdi) else nop
     | Eunop (op, (e, _), _) ->
-      label "" (* TODO implement*)
+      expression lvl e ++ negq (reg rdi)
     | Ebinop (op, (e0, _), (e1, _), _) ->
       expression lvl e1 ++ pushq (reg rdi) ++ expression lvl e0 ++
       (match op with
@@ -61,10 +81,9 @@ let rec expression lvl e =
           | Nsub -> popq rsi ++ subq (reg rsi) (reg rdi)
           | Nmul -> popq rsi ++ imulq (reg rsi) (reg rdi)
           | Ndiv -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
-                    idivq (reg rdi) ++ movq (reg rax) (reg rdi))
-       | Ibinop o ->
-         (match o with
-          | Ipow -> cqto (* TODO remove cqto and implement *))
+                    idivq (reg rdi) ++ movq (reg rax) (reg rdi)
+          | Npow -> popq rsi ++ (* rdi -> x; rsi -> n *)
+                    call "int_pow")
        | _ -> assert false)
 
   in let rec float_expr lvl = function
@@ -102,18 +121,24 @@ let rec expression lvl e =
             | Nadd -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ addsd (reg xmm1) (reg xmm0)
             | Nsub -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ subsd (reg xmm1) (reg xmm0)
             | Nmul -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ mulsd (reg xmm1) (reg xmm0)
-            | Ndiv -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ divsd (reg xmm1) (reg xmm0))
+            | Ndiv -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ divsd (reg xmm1) (reg xmm0)
+            | Npow -> popq rsi ++ movq (reg rsi) (reg xmm1) ++ call "pow")
          | _ -> assert false)
 
   in let rec char_expr lvl = function
         Econst (n, _, _) ->
         (match n with
-         | Cchar x -> movq (imm (int_of_char x)) (reg rdi)
+         | Cchar x -> movq (imm (Char.code x)) (reg rsi)
          | _ -> assert false)
       | Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
         movq (reg rbp) (reg rsi) ++
         iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
         movq (ind ~ofs rsi) (reg rdi) ++
+        if br then movq (ind rdi) (reg rdi) else nop
+      | Eaddr ({ level = l; offset = ofs; by_reference = br }, _, _) ->
+        movq (reg rbp) (reg rdi) ++
+        iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
+        addq (imm ofs) (reg rdi) ++
         if br then movq (ind rdi) (reg rdi) else nop
       | Ebinop (op, (e0, _), (e1, _), _) ->
         expression lvl e1 ++ pushq (reg rdi) ++ expression lvl e0 ++
@@ -218,19 +243,51 @@ let frame_size dl =
 let procedure p =
   Format.eprintf "procedure %s at level %d@."
     p.pident.proc_name p.pident.proc_level;
-  let fs = 8 + frame_size p.locals in
+  let fs = frame_size p.locals in
   label (symb p.pident.proc_name) ++
-  subq (imm fs) (reg rsp) ++                (* alloue la frame *)
-  movq (reg rbp) (ind ~ofs:(fs - 8) rsp) ++ (* sauve rbp *)
-  leaq (ind ~ofs:(fs - 8) rsp) rbp ++       (* rbp = rsp + fs - 8 *)
+  pushq (reg rbp) ++
+  movq (reg rsp) (reg rbp) ++
+  subq (imm fs) (reg rsp) ++
   stmt (p.pident.proc_level + 1) p.body ++
-  movq (reg rbp) (reg rsp) ++ popq rbp ++ ret (* = leave ++ ret *)
+  leave ++ ret
 
 let rec decl = function
   | Var _ -> nop
   | Procedure p -> procedure p ++ decls p.locals
 
 and decls dl = List.fold_left (fun code d -> code ++ decl d) nop dl
+
+let print_int_asm =
+  label "print_int" ++
+  pushq (reg rbp) ++
+  movq (reg rsp) (reg rbp) ++
+  movq (reg rdi) (reg rsi) ++
+  movq (ilab ".Sprint_int") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "printf" ++
+  leave ++
+  ret
+
+let print_float_asm =
+  label "print_float" ++
+  pushq (reg rbp) ++
+  movq (reg rsp) (reg rbp) ++
+  movq (ilab ".Sprint_float") (reg rdi) ++
+  movq (imm 1) (reg rax) ++
+  call "printf" ++
+  leave ++
+  ret
+
+let print_char_asm =
+    label "print_char" ++
+    pushq (reg rbp) ++
+    movq (reg rsp) (reg rbp) ++
+    movq (reg rdi) (reg rsi) ++
+    movq (ilab ".Sprint_char") (reg rdi) ++
+    movq (imm 0) (reg rax) ++
+    call "printf" ++
+    leave ++
+    ret
 
 let prog p =
   let fs = frame_size p.locals in
@@ -240,35 +297,19 @@ let prog p =
       glabel "main" ++
       pushq (reg rbp) ++
       movq (reg rsp) (reg rbp) ++
-      subq (imm fs) (reg rsp) ++ (* alloue la frame *)
-      (* leaq (ind ~ofs:(fs - 16) rsp) rbp ++ (* fp = ... *) *)
+      subq (imm fs) (reg rsp) ++
       code_main ++
-      (* addq (imm fs) (reg rsp) ++ (* désalloue la frame *) *)
-      movq (imm 0) (reg rax) ++ (* exit *)
-      (* movq (reg rbp) (reg rsp) ++
-         popq rbp ++ *)
-      leave ++
-      ret ++
-      label "print_int" ++
-      pushq (reg rbp) ++
-      movq (reg rsp) (reg rbp) ++
-      movq (reg rdi) (reg rsi) ++
-      movq (ilab ".Sprint_int") (reg rdi) ++
       movq (imm 0) (reg rax) ++
-      call "printf" ++
       leave ++
       ret ++
-      label "print_float" ++
-      pushq (reg rbp) ++
-      movq (reg rsp) (reg rbp) ++
-      movq (ilab ".Sprint_float") (reg rdi) ++
-      movq (imm 1) (reg rax) ++
-      call "printf" ++
-      leave ++
-      ret ++
+      print_int_asm ++
+      print_float_asm ++
+      print_char_asm ++
+      int_pow ++
       !floats ++
       code_procs;
     data =
       label ".Sprint_int" ++ string "%d\n" ++
-      label ".Sprint_float" ++ string "%f\n"
+      label ".Sprint_float" ++ string "%f\n" ++
+      label ".Sprint_char" ++ string "%c\n"
   }

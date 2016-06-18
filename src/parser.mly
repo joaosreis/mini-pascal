@@ -15,9 +15,9 @@
 %left OR
 %left AND
 %nonassoc NOT
-%left EXP
 %left MINUS PLUS
 %left TIMES DIV
+%left EXP
 %left CONCAT
 %nonassoc uminus
 %nonassoc THEN
@@ -68,7 +68,6 @@ expression:
 
 %inline binop:
   | o=num_binop     { Nbinop(o) }
-  | o=int_binop     { Ibinop(o) }
   | o=literal_binop { Lbinop(o) }
 
 %inline num_binop:
@@ -76,10 +75,7 @@ expression:
   | MINUS { Nsub }
   | TIMES { Nmul }
   | DIV   { Ndiv }
-;
-
-%inline int_binop:
-  | EXP  { Ipow }
+  | EXP   { Npow }
 ;
 
 %inline literal_binop:
