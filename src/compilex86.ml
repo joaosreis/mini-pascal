@@ -208,9 +208,12 @@ let rec stmt lvl = function
     List.fold_left (fun code s -> code ++ stmt lvl s) nop sl
 
 let frame_size dl =
-  8 * List.fold_left (fun s d -> match d with
+  let n = 8 * List.fold_left (fun s d -> match d with
       | Var vl -> s + List.length vl
       | Procedure _ -> s) 0 dl
+  in if n = 0 then 16
+  else if n mod 16 <> 0 then n + 8
+  else n
 
 let procedure p =
   Format.eprintf "procedure %s at level %d@."
@@ -235,27 +238,33 @@ let prog p =
   let code_procs = decls p.locals in
   { text =
       glabel "main" ++
-      pushq (reg rsp) ++
+      pushq (reg rbp) ++
       movq (reg rsp) (reg rbp) ++
       subq (imm fs) (reg rsp) ++ (* alloue la frame *)
       (* leaq (ind ~ofs:(fs - 16) rsp) rbp ++ (* fp = ... *) *)
       code_main ++
       (* addq (imm fs) (reg rsp) ++ (* désalloue la frame *) *)
       movq (imm 0) (reg rax) ++ (* exit *)
-      movq (reg rbp) (reg rsp) ++
-      popq rbp ++
+      (* movq (reg rbp) (reg rsp) ++
+         popq rbp ++ *)
+      leave ++
       ret ++
       label "print_int" ++
+      pushq (reg rbp) ++
+      movq (reg rsp) (reg rbp) ++
       movq (reg rdi) (reg rsi) ++
       movq (ilab ".Sprint_int") (reg rdi) ++
       movq (imm 0) (reg rax) ++
       call "printf" ++
+      leave ++
       ret ++
       label "print_float" ++
-      movq (reg rdi) (reg rsi) ++
+      pushq (reg rbp) ++
+      movq (reg rsp) (reg rbp) ++
       movq (ilab ".Sprint_float") (reg rdi) ++
       movq (imm 1) (reg rax) ++
       call "printf" ++
+      leave ++
       ret ++
       !floats ++
       code_procs;
