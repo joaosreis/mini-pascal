@@ -73,9 +73,21 @@ let rec expression lvl e =
            Cfloat x -> let n = add_float x in movsd (inds (".LC" ^ string_of_int n) rip) (reg xmm0)
          | _ -> assert false)
       | Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
-        (* TODO implement *) label ""
+        movq (reg rbp) (reg rsi) ++
+        iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
+        movq (ind ~ofs rsi) (reg rdi) ++
+        if br then
+          movq (ind rdi) (reg rdi) ++ movq (reg rdi) (reg xmm0)
+        else
+          movq (reg rdi) (reg xmm0)
       | Eaddr ({ level = l; offset = ofs; by_reference = br }, _, _) ->
-        (* TODO implement *) label ""
+        movq (reg rbp) (reg rdi) ++
+        iter (lvl - l) (movq (ind ~ofs:16 rdi) (reg rdi)) ++
+        addq (imm ofs) (reg rdi) ++
+        if br then
+          movq (ind rdi) (reg rdi) ++ movq (reg rdi) (reg xmm0)
+        else
+          movq (reg rdi) (reg xmm0)
       | Eunop (op, (e, _), _) ->
         expression lvl e ++
         movq (imm 8000000000000000) (reg rsi) ++ cvtsi2sdq (reg rsi) (reg xmm1) ++
@@ -170,7 +182,11 @@ let rec stmt lvl = function
         else addq (imm ofs) (reg rsi)) ++
        movq (reg rdi) (ind rsi)
      | Standard(Real) ->
-       e1 (* TODO implement *)
+       e1 ++ movq (reg rbp) (reg rsi) ++
+       iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
+       (if br then movq (ind ~ofs rsi) (reg rsi)
+        else addq (imm ofs) (reg rsi)) ++
+       movq (reg xmm0) (ind rsi)
      | Standard(Character) ->
        e1 (* TODO implement *)
      | Standard(String(_)) ->
@@ -203,7 +219,7 @@ let procedure p =
   label (symb p.pident.proc_name) ++
   subq (imm fs) (reg rsp) ++                (* alloue la frame *)
   movq (reg rbp) (ind ~ofs:(fs - 8) rsp) ++ (* sauve rbp *)
-  leaq (ind ~ofs:(fs - 8) rsp) rbp ++       (* rbp = rsp + fs - 16 *)
+  leaq (ind ~ofs:(fs - 8) rsp) rbp ++       (* rbp = rsp + fs - 8 *)
   stmt (p.pident.proc_level + 1) p.body ++
   movq (reg rbp) (reg rsp) ++ popq rbp ++ ret (* = leave ++ ret *)
 
@@ -214,16 +230,20 @@ let rec decl = function
 and decls dl = List.fold_left (fun code d -> code ++ decl d) nop dl
 
 let prog p =
-  let fs = 16 + frame_size p.locals in
+  let fs = frame_size p.locals in
   let code_main = stmt 0 p.body in
   let code_procs = decls p.locals in
   { text =
       glabel "main" ++
+      pushq (reg rsp) ++
+      movq (reg rsp) (reg rbp) ++
       subq (imm fs) (reg rsp) ++ (* alloue la frame *)
-      leaq (ind ~ofs:(fs - 16) rsp) rbp ++ (* fp = ... *)
+      (* leaq (ind ~ofs:(fs - 16) rsp) rbp ++ (* fp = ... *) *)
       code_main ++
-      addq (imm fs) (reg rsp) ++ (* désalloue la frame *)
+      (* addq (imm fs) (reg rsp) ++ (* désalloue la frame *) *)
       movq (imm 0) (reg rax) ++ (* exit *)
+      movq (reg rbp) (reg rsp) ++
+      popq rbp ++
       ret ++
       label "print_int" ++
       movq (reg rdi) (reg rsi) ++

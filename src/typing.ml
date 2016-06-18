@@ -1,7 +1,7 @@
 open Ast
 open PrettyPrint
 
-let debug = ref true
+let debug = ref false
 
 exception Error of string
 
