@@ -21,6 +21,8 @@ type num_unop = Nneg
 
 type num_binop = Nadd | Nsub | Nmul | Ndiv | Npow
 
+type int_binop = Imod
+
 type literal_binop = Lconcat
 
 type bool_unop = Bnot
@@ -34,6 +36,7 @@ type unop =
 
 type binop =
     Nbinop    of num_binop
+  | Ibinop    of int_binop
   | Lbinop    of literal_binop
 
 type op = Binop of binop | Unop of unop
@@ -44,10 +47,10 @@ type pexpr =
   | PEbinop of binop * (pexpr * tposition) * (pexpr * tposition)
   | PEunop of unop * (pexpr * tposition)
 
-  type pbool_expr =
-      PBcmp    of cmp * pexpr * pexpr
-    | PBbinop  of bool_binop * pbool_expr * pbool_expr
-    | PBunop   of bool_unop * pbool_expr
+type pbool_expr =
+    PBcmp    of cmp * pexpr * pexpr
+  | PBbinop  of bool_binop * pbool_expr * pbool_expr
+  | PBunop   of bool_unop * pbool_expr
 
 type pstmt =
   | PSassign of string * pexpr
@@ -82,10 +85,10 @@ type expr =
   | Eunop of unop * (expr * tposition) * ttype
   | Eaddr of ident * ttype * tposition
 
-  type bool_expr =
-      Bcmp    of cmp * expr * expr
-    | Bbinop  of bool_binop * bool_expr * bool_expr
-    | Bunop   of bool_unop * bool_expr
+type bool_expr =
+    Bcmp    of cmp * expr * expr
+  | Bbinop  of bool_binop * bool_expr * bool_expr
+  | Bunop   of bool_unop * bool_expr
 
 type pident = { proc_name : string; proc_level : int }
 

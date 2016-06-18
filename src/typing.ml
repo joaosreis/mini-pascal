@@ -38,6 +38,13 @@ let resolve_binop e1 e2 op =
       incompatible_types (string_of_type t1) (string_of_type t2) e2
     else
       t1
+  | Ibinop op ->
+    if t1 <> Standard(Integer) then
+      invalid_operand (Binop (Ibinop op)) "integer" e1
+    else if t2 <> Standard(Integer) then
+      invalid_operand (Binop (Ibinop op)) "integer" e2
+    else
+      Standard(Integer)
   | Lbinop op ->
     (match t1, t2 with
      | Standard(Character),Standard(Character) -> Standard(Character)

@@ -9,14 +9,14 @@
 %token <string> IDENT
 %token COMMA DOT IF THEN PROGRAM COLONEQ BEGIN END ELSE PROCEDURE
 %token LPAREN RPAREN LBRACKET RBRACKET INTEGER REAL CHARACTER TSTRING VAR COLON SEMICOLON WHILE DO /*TYPE RECORD*/
-%token EXP PLUS MINUS TIMES DIV CONCAT AND OR NOT
+%token EXP PLUS MINUS TIMES DIV MOD CONCAT AND OR NOT
 %token EQ NEQ LT LE GT GE
 
 %left OR
 %left AND
 %nonassoc NOT
 %left MINUS PLUS
-%left TIMES DIV
+%left TIMES DIV MOD
 %left EXP
 %left CONCAT
 %nonassoc uminus
@@ -68,6 +68,7 @@ expression:
 
 %inline binop:
   | o=num_binop     { Nbinop(o) }
+  | o=int_binop     { Ibinop(o) }
   | o=literal_binop { Lbinop(o) }
 
 %inline num_binop:
@@ -76,6 +77,10 @@ expression:
   | TIMES { Nmul }
   | DIV   { Ndiv }
   | EXP   { Npow }
+;
+
+%inline int_binop:
+  | MOD { Imod }
 ;
 
 %inline literal_binop:

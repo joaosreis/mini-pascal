@@ -84,6 +84,10 @@ let rec expression lvl e =
                     idivq (reg rdi) ++ movq (reg rax) (reg rdi)
           | Npow -> popq rsi ++ (* rdi -> x; rsi -> n *)
                     call "int_pow")
+       | Ibinop o ->
+         (match o with
+          | Imod -> movq (reg rdi) (reg rax) ++ cqto ++ popq rdi ++
+                    idivq (reg rdi) ++ movq (reg rdx) (reg rdi))
        | _ -> assert false)
 
   in let rec float_expr lvl = function
@@ -279,15 +283,15 @@ let print_float_asm =
   ret
 
 let print_char_asm =
-    label "print_char" ++
-    pushq (reg rbp) ++
-    movq (reg rsp) (reg rbp) ++
-    movq (reg rdi) (reg rsi) ++
-    movq (ilab ".Sprint_char") (reg rdi) ++
-    movq (imm 0) (reg rax) ++
-    call "printf" ++
-    leave ++
-    ret
+  label "print_char" ++
+  pushq (reg rbp) ++
+  movq (reg rsp) (reg rbp) ++
+  movq (reg rdi) (reg rsi) ++
+  movq (ilab ".Sprint_char") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "printf" ++
+  leave ++
+  ret
 
 let prog p =
   let fs = frame_size p.locals in

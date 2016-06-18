@@ -39,7 +39,7 @@ sanity:
 tests:		native clean_tests
 	@for f in tests/*.pas; do \
 	echo "===== testing $$f ============"; \
-	./$(BIN) $$f && gcc tests/`basename $$f .pas`.s && ./a.out; done
+	./$(BIN) $$f && gcc -lm tests/`basename $$f .pas`.s && ./a.out; done
 
 clean_tests:
 	rm -f tests/*.s

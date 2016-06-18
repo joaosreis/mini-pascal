@@ -45,6 +45,7 @@ rule read = parse
   | '-'             { MINUS }
   | '*'             { TIMES }
   | '/'             { DIV }
+  | '%'             { MOD }
   | '='             { EQ }
   | "<>"            { NEQ }
   | '<'             { LT }

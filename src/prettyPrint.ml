@@ -22,14 +22,16 @@ let string_of_expr_pos e = let Position(s, e) = match e with
 
 let string_of_operator = function
     Binop op -> (match op with
-      Nbinop o -> (match o with
-        Nadd -> "+"
-      | Nsub -> "-"
-      | Nmul -> "*"
-      | Ndiv -> "/"
-      | Npow -> "**")
-    | Lbinop o -> (match o with
-          Lconcat -> "+"))
+        Nbinop o -> (match o with
+            Nadd -> "+"
+          | Nsub -> "-"
+          | Nmul -> "*"
+          | Ndiv -> "/"
+          | Npow -> "^")
+      | Ibinop o -> (match o with
+            Imod -> "%")
+      | Lbinop o -> (match o with
+            Lconcat -> "+"))
   | Unop op -> (match op with
         Nunop o -> (match o with
             Nneg -> "-"))
