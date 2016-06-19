@@ -1,12 +1,7 @@
 program read;
 
-
-procedure test();
-var x : integer;
-begin
-  readint(x); writeln(x)
-end;
+var y : real;
 
 begin
-  test()
+  readreal(y); writeln(y)
 end.

@@ -358,6 +358,12 @@ let print_string_asm =
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
 
+let prints =
+  print_int_asm ++
+  print_float_asm ++
+  print_char_asm ++
+  print_string_asm
+
 let read_int_asm =
   label "read_int" ++
   cfi_startproc ++
@@ -373,9 +379,30 @@ let read_int_asm =
   movq (ilab ".Sread_int") (reg rdi) ++
   movq (imm 0) (reg rax) ++
   call "scanf" ++
-  movq (ind ~ofs:(-8) rbp) (reg rax) ++
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
+
+let read_float_asm =
+  label "read_float" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  subq (imm 16) (reg rsp) ++
+  movq (reg rdi) (ind ~ofs:(-8) rbp) ++
+  movq (ind ~ofs:(-8) rbp) (reg rax) ++
+  movq (reg rax) (reg rsi) ++
+  movq (ilab ".Sread_float") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "scanf" ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
+let reads =
+  read_int_asm ++
+  read_float_asm
 
 let prog p =
   let fs = frame_size p.locals in
@@ -394,21 +421,18 @@ let prog p =
       movq (imm 0) (reg rax) ++
       leave ++ cfi_def_cfa (immi 7) (immi 8) ++
       ret ++ cfi_endproc ++
-      print_int_asm ++
-      print_float_asm ++
-      print_char_asm ++
-      print_string_asm ++
-      read_int_asm ++
+      prints ++
+      reads ++
       int_pow ++
       !constants ++
       code_procs;
     data =
       label ".Sprint_int" ++ string "%d\n" ++
-      label ".Sprint_float" ++ string "%f\n" ++
+      label ".Sprint_float" ++ string "%lf\n" ++
       label ".Sprint_char" ++ string "%c\n" ++
       label ".Sprint_string" ++ string "%s\n" ++
       label ".Sread_int" ++ string "%d" ++
-      label ".Sread_float" ++ string "%f" ++
+      label ".Sread_float" ++ string "%lf" ++
       label ".Sread_char" ++ string "%c" ++
       label ".Sread_string" ++ string "%s"
   }
