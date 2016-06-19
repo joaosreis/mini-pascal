@@ -119,8 +119,7 @@ let rec expression lvl e =
           movq (reg rdi) (reg xmm0)
       | Eunop (op, (e, _), _) ->
         expression lvl e ++
-        movq (imm 8000000000000000) (reg rsi) ++ cvtsi2sdq (reg rsi) (reg xmm1) ++
-        xorpd (reg xmm1) (reg xmm0) (* FIXME not working *)
+        negsd (reg xmm0) (* FIXME not working *)
       | Ebinop (op, (e0, _), (e1, _), _) ->
         expression lvl e1 ++
         movq (reg xmm0) (reg rdi) ++ pushq (reg rdi) ++

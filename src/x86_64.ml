@@ -162,6 +162,12 @@ let movzwq a b = ins "movzwq %a, %s" a () b
 
 let movsd a b = ins "movsd %a, %a" a () b ()
 let movapd a b = ins "movapd %a, %a" a () b ()
+let xorq a b = ins "xorq %a, %a" a () b ()
+let negsd a =
+  movq a (reg rdi) ++
+  ins "movq $9223372036854775808, %a" (reg rax) () ++
+  xorq (reg rax) (reg rdi) ++
+  movq (reg rdi) a
 
 let leab op r = ins "leab %a, %s" op () r
 let leaw op r = ins "leaw %a, %s" op () r

@@ -182,6 +182,8 @@ val movzwq: [`W] operand -> [`Q] register -> text
 val movsd: [`Q] operand -> [`Q] operand -> text
 val movapd: [`Q] operand -> [`Q] operand -> text
 
+val negsd: [`Q] operand -> text
+
 val movabsq: int64 -> [`Q] register -> text
   (** copie une valeur immédiate 64 bits dans un registre *)
 
