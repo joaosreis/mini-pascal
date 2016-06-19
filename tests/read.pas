@@ -1,7 +1,8 @@
 program read;
 
+var x: char;
 var y : real;
 
 begin
-  readreal(y); writeln(-y)
+  readchar(x); writeln(x); readreal(y); writeln(-y)
 end.

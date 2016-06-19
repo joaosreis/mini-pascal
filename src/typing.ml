@@ -104,20 +104,30 @@ let rec stmt env = function
   | PSwhile (b, s1) -> Swhile (bool_expr env b, stmt env s1)
   | PSblock sl -> Sblock (List.map (stmt env) sl)
   | PScall ("writeln", [e]) -> Swriteln (expression env e)
-  | PScall ("readint", [e]) -> Sread
-                                 (match e with
-                                    PEvar _ -> let e1 = expression env e in
-                                    (match e1 with
-                                       Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
-                                     | _ -> assert false)
-                                  | _ -> error "" (* TODO error *))
-  | PScall ("readreal", [e]) -> Sread
-                                   (match e with
-                                      PEvar _ -> let e1 = expression env e in
-                                      (match e1 with
-                                         Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
-                                       | _ -> assert false)
-                                    | _ -> error "" (* TODO error *))
+  | PScall ("readint", [e]) ->
+    Sread
+      (match e with
+         PEvar _ -> let e1 = expression env e in
+         (match e1 with
+            Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
+          | _ -> assert false)
+       | _ -> error "" (* TODO error *))
+  | PScall ("readreal", [e]) ->
+    Sread
+      (match e with
+         PEvar _ -> let e1 = expression env e in
+         (match e1 with
+            Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
+          | _ -> assert false)
+       | _ -> error "" (* TODO error *))
+  | PScall ("readchar", [e]) ->
+    Sread
+      (match e with
+         PEvar _ -> let e1 = expression env e in
+         (match e1 with
+            Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
+          | _ -> assert false)
+       | _ -> error "" (* TODO error *))
   | PScall (p, el) ->
     let p,fl = try Env.find p env.procs with Not_found -> unbound_proc p in
     let a = List.length fl in

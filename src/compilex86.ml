@@ -119,7 +119,7 @@ let rec expression lvl e =
           movq (reg rdi) (reg xmm0)
       | Eunop (op, (e, _), _) ->
         expression lvl e ++
-        negsd (reg xmm0) (* FIXME not working *)
+        negsd (reg xmm0)
       | Ebinop (op, (e0, _), (e1, _), _) ->
         expression lvl e1 ++
         movq (reg xmm0) (reg rdi) ++ pushq (reg rdi) ++
@@ -137,7 +137,8 @@ let rec expression lvl e =
   in let rec char_expr lvl = function
         Econst (n, _, _) ->
         (match n with
-         | Cchar x -> movq (imm (Char.code x)) (reg rsi)
+         | Cchar x ->
+           movq (imm (Char.code x)) (reg rdi)
          | _ -> assert false)
       | Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
         movq (reg rbp) (reg rsi) ++
@@ -206,10 +207,10 @@ let rec stmt lvl = function
                    | _ -> (* TODO array *) label "")
   | Sread e ->
     (match e with
-      Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
-        movq (reg rbp) (reg rsi) ++
-        iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
-        leaq (ind ~ofs rsi) rdi
+       Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
+       movq (reg rbp) (reg rsi) ++
+       iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
+       leaq (ind ~ofs rsi) rdi
      | _ -> assert false) ++
     (match type_of_expr e with
        Standard(Integer) -> call "read_int"
@@ -242,7 +243,11 @@ let rec stmt lvl = function
         else addq (imm ofs) (reg rsi)) ++
        movq (reg xmm0) (ind rsi)
      | Standard(Character) ->
-       e1 (* TODO implement *)
+       e1 ++ movq (reg rbp) (reg rsi) ++
+       iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
+       (if br then movq (ind ~ofs rsi) (reg rsi)
+        else addq (imm ofs) (reg rsi)) ++
+       movq (reg rdi) (ind rsi)
      | Standard(String(_)) ->
        e1 (* TODO implement *)
      | _ -> (* TODO array *) e1 (* TODO implement *))
@@ -399,9 +404,26 @@ let read_float_asm =
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
 
-let reads =
-  read_int_asm ++
-  read_float_asm
+let read_asm =
+  List.fold_left (fun code (l1,l2) ->
+      code ++
+      label l1 ++
+      cfi_startproc ++
+      pushq (reg rbp) ++
+      cfi_def_cfa_offset (immi 16) ++
+      cfi_offset (immi 6) (immi (-16)) ++
+      movq (reg rsp) (reg rbp) ++
+      cfi_def_cfa_register (immi 6) ++
+      subq (imm 16) (reg rsp) ++
+      movq (reg rdi) (ind ~ofs:(-8) rbp) ++
+      movq (ind ~ofs:(-8) rbp) (reg rax) ++
+      movq (reg rax) (reg rsi) ++
+      movq (ilab l2) (reg rdi) ++
+      movq (imm 0) (reg rax) ++
+      call "scanf" ++
+      leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+      ret ++ cfi_endproc)
+    nop ["read_int",".Sread_int"; "read_float",".Sread_float"; "read_char",".Sread_char"]
 
 let prog p =
   let fs = frame_size p.locals in
@@ -421,7 +443,7 @@ let prog p =
       leave ++ cfi_def_cfa (immi 7) (immi 8) ++
       ret ++ cfi_endproc ++
       prints ++
-      reads ++
+      read_asm ++
       int_pow ++
       !constants ++
       code_procs;
