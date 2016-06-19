@@ -99,6 +99,7 @@ type stmt =
   | Sblock    of stmt list
   | Scall     of pident * expr list
   | Swriteln  of expr
+  | Swrite    of expr
   | Sread     of expr
 
 type procedure =

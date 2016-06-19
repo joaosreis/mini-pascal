@@ -205,6 +205,13 @@ let rec stmt lvl = function
                    | Standard(Character) -> call "print_char"
                    | Standard(String(_)) -> call "print_string"
                    | _ -> (* TODO array *) label "")
+  | Swrite e -> expression lvl e ++
+                  (match (type_of_expr e) with
+                   | Standard(Integer) -> call "print_int_noline"
+                   | Standard(Real) -> call "print_float_noline"
+                   | Standard(Character) -> call "print_char_noline"
+                   | Standard(String(_)) -> call "print_string_noline"
+                   | _ -> (* TODO array *) label "")
   | Sread e ->
     (match e with
        Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
@@ -317,6 +324,22 @@ let print_int_asm =
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
 
+let print_int_noline_asm =
+  label "print_int_noline" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  movq (reg rdi) (reg rsi) ++
+  movq (ilab ".Sprint_int_noline") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "printf" ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
+
 let print_float_asm =
   label "print_float" ++
   cfi_startproc ++
@@ -327,6 +350,21 @@ let print_float_asm =
   cfi_def_cfa_register (immi 6) ++
   subq (imm 16) (reg rsp) ++
   movq (ilab ".Sprint_float") (reg rdi) ++
+  movq (imm 1) (reg rax) ++
+  call "printf" ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
+let print_float_noline_asm =
+  label "print_float_noline" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  subq (imm 16) (reg rsp) ++
+  movq (ilab ".Sprint_float_noline") (reg rdi) ++
   movq (imm 1) (reg rax) ++
   call "printf" ++
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
@@ -347,6 +385,21 @@ let print_char_asm =
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
 
+let print_char_noline_asm =
+  label "print_char_noline" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  movq (reg rdi) (reg rsi) ++
+  movq (ilab ".Sprint_char_noline") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "printf" ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
 let print_string_asm =
   label "print_string" ++
   cfi_startproc ++
@@ -362,11 +415,30 @@ let print_string_asm =
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
 
+let print_string_noline_asm =
+  label "print_string_noline" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  movq (reg rdi) (reg rsi) ++
+  movq (ilab ".Sprint_string_noline") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "printf" ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
 let prints =
   print_int_asm ++
   print_float_asm ++
   print_char_asm ++
-  print_string_asm
+  print_string_asm ++
+  print_string_noline_asm ++
+  print_char_noline_asm ++
+  print_float_noline_asm ++
+  print_int_noline_asm
 
 let read_int_asm =
   label "read_int" ++
@@ -452,6 +524,10 @@ let prog p =
       label ".Sprint_float" ++ string "%lf\n" ++
       label ".Sprint_char" ++ string "%c\n" ++
       label ".Sprint_string" ++ string "%s\n" ++
+      label ".Sprint_string_noline" ++ string "%s" ++
+      label ".Sprint_char_noline" ++ string "%c" ++
+      label ".Sprint_float_noline" ++ string "%lf" ++
+      label ".Sprint_int_noline" ++ string "%d" ++
       label ".Sread_int" ++ string "%d" ++
       label ".Sread_float" ++ string "%lf" ++
       label ".Sread_char" ++ string "%c" ++

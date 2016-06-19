@@ -104,6 +104,7 @@ let rec stmt env = function
   | PSwhile (b, s1) -> Swhile (bool_expr env b, stmt env s1)
   | PSblock sl -> Sblock (List.map (stmt env) sl)
   | PScall ("writeln", [e]) -> Swriteln (expression env e)
+  | PScall ("write", [e]) -> Swrite (expression env e)
   | PScall ("readint", [e]) ->
     Sread
       (match e with
