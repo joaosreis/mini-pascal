@@ -243,6 +243,9 @@ let sarq a b = ins "sarq %a, %a" a () b ()
 let jmp (z: label) = ins "jmp %s" z
 let jmp_star o = ins "jmp *%a" o ()
 
+let pushq a = ins "pushq %a" a ()
+let popq r = ins "popq %s" r
+
 let call (z: label) = ins "call %s" z
 let call_star z = ins "call *%a" z ()
 let leave = ins "leave"
@@ -302,14 +305,23 @@ let string s = ins ".string %S" s
 let address l = ins ".quad %a" pr_alist l
 let space n = ins ".space %d" n
 
-let pushq a = ins "pushq %a" a ()
-let popq r = ins "popq %s" r
-
 let long a = ins ".long %a" a ()
 
 let cvtsi2sdq a b = ins "cvtsi2sdq %a, %a" a () b ()
 
 let xorpd a b = ins "xorpd %a, %a" a () b ()
+
+let cfi_startproc = ins ".cfi_startproc"
+
+let cfi_def_cfa_offset a = ins ".cfi_def_cfa_offset %a" a ()
+
+let cfi_offset a b = ins ".cfi_offset %a, %a" a () b ()
+
+let cfi_def_cfa_register a = ins ".cfi_def_cfa_register %a" a ()
+
+let cfi_def_cfa a b = ins ".cfi_def_cfa %a, %a" a () b ()
+
+let cfi_endproc = ins ".cfi_endproc"
 
 type program = {
   text : [ `text ] asm;

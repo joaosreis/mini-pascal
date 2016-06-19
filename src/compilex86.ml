@@ -187,20 +187,22 @@ let rec bool_expr lvl = function
 let popn n = addq (imm (8 * n)) (reg rsp)
 
 let rec stmt lvl = function
-  | Swriteln e ->
-    let e1 = expression lvl e in
+  | Swriteln e -> expression lvl e ++
     (match (type_of_expr e) with
-     | Standard(Integer) -> e1 ++ call "print_int"
-     | Standard(Real) -> e1 ++ call "print_float"
-     | Standard(Character) -> e1 ++ call "print_char"
-     | Standard(String(_)) -> e1 ++ call "print_string"
+     | Standard(Integer) -> call "print_int"
+     | Standard(Real) -> call "print_float"
+     | Standard(Character) -> call "print_char"
+     | Standard(String(_)) -> call "print_string"
      | _ -> (* TODO array *) label "")
   | Scall ({proc_name = id; proc_level = l}, el) ->
     List.fold_left
-      (fun code s -> code ++ expression lvl s ++ pushq (reg rdi)) nop el ++
+      (fun code s -> code ++ expression lvl s ++ match type_of_expr s with
+         | Standard(Integer) -> pushq (reg rdi)
+         | Standard(Real) -> movq (reg xmm0) (reg rdi) ++ pushq (reg rdi)
+         | _ -> pushq (reg rdi)) nop el ++
     movq (reg rbp) (reg rsi) ++
     iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++ pushq (reg rsi) ++
-    call (symb id) ++ popn (1 + List.length el)
+    call (symb id) ++ popn (List.length el - 1)
   | Sassign ({ level = l; offset = ofs; by_reference = br }, e) ->
     let e1 = expression lvl e in
     (match (type_of_expr e) with
@@ -236,25 +238,36 @@ let rec stmt lvl = function
   | Sblock sl ->
     List.fold_left (fun code s -> code ++ stmt lvl s) nop sl
 
-let frame_size dl =
-  let n = 8 * List.fold_left (fun s d -> match d with
+let frame_lenght dl =
+  List.fold_left (fun s d -> match d with
       | Var vl -> s + List.length vl
       | Procedure _ -> s) 0 dl
+
+let frame_size dl =
+  let n = 8 * frame_lenght dl
   in if n = 0 then 16
-  else if n mod 16 <> 0 then n + 8
-  else n
+  else let r = n mod 16 in
+    n + r
+
+let frame_size_p dl fl =
+  let n = 8 * (frame_lenght dl + List.length fl)
+  in if n = 0 then 16
+  else let r = n mod 16 in
+    n + r
 
 let procedure p =
-  Format.eprintf "procedure %s at level %d@."
-    p.pident.proc_name p.pident.proc_level;
   let fs = frame_size p.locals in
   label (symb p.pident.proc_name) ++
+  cfi_startproc ++
   pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
   movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
   subq (imm fs) (reg rsp) ++
   stmt (p.pident.proc_level + 1) p.body ++
-  leave ++ ret
-
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
 let rec decl = function
   | Var _ -> nop
   | Procedure p -> procedure p ++ decls p.locals
@@ -263,35 +276,48 @@ and decls dl = List.fold_left (fun code d -> code ++ decl d) nop dl
 
 let print_int_asm =
   label "print_int" ++
+  cfi_startproc ++
   pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
   movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
   movq (reg rdi) (reg rsi) ++
   movq (ilab ".Sprint_int") (reg rdi) ++
   movq (imm 0) (reg rax) ++
   call "printf" ++
-  leave ++
-  ret
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
 
 let print_float_asm =
   label "print_float" ++
+  cfi_startproc ++
   pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
   movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  subq (imm 16) (reg rsp) ++
   movq (ilab ".Sprint_float") (reg rdi) ++
   movq (imm 1) (reg rax) ++
   call "printf" ++
-  leave ++
-  ret
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
 
 let print_char_asm =
   label "print_char" ++
+  cfi_startproc ++
   pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
   movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
   movq (reg rdi) (reg rsi) ++
   movq (ilab ".Sprint_char") (reg rdi) ++
   movq (imm 0) (reg rax) ++
   call "printf" ++
-  leave ++
-  ret
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
 
 let prog p =
   let fs = frame_size p.locals in
@@ -299,13 +325,17 @@ let prog p =
   let code_procs = decls p.locals in
   { text =
       glabel "main" ++
+      cfi_startproc ++
       pushq (reg rbp) ++
+      cfi_def_cfa_offset (immi 16) ++
+      cfi_offset (immi 6) (immi (-16)) ++
       movq (reg rsp) (reg rbp) ++
+      cfi_def_cfa_register (immi 6) ++
       subq (imm fs) (reg rsp) ++
       code_main ++
       movq (imm 0) (reg rax) ++
-      leave ++
-      ret ++
+      leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+      ret ++ cfi_endproc ++
       print_int_asm ++
       print_float_asm ++
       print_char_asm ++

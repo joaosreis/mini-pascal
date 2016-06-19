@@ -341,6 +341,18 @@ val cvtsi2sdq: [`Q] operand -> [`Q] operand -> text
 
 val xorpd: [`Q] operand -> [`Q] operand -> text
 
+val cfi_startproc: text
+
+val cfi_def_cfa_offset: [`Q] operand -> text
+
+val cfi_offset: [`Q] operand -> [`Q] operand -> text
+
+val cfi_def_cfa_register: [`Q] operand -> text
+
+val cfi_def_cfa: [`Q] operand -> [`Q] operand -> text
+
+val cfi_endproc: text
+
 (** {2 Divers } *)
 
 val label : label -> [> ] asm

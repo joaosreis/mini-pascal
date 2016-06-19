@@ -8,5 +8,5 @@ begin
 end;
 
 begin
-  power(5.0); writeln(o)
+  power(5.0); writeln(p)
 end.
