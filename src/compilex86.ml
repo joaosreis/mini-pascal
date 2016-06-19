@@ -1,8 +1,8 @@
 open X86_64
 open Ast
 
-let floats = ref (ins "")
-let n_floats = ref 1
+let constants = ref nop
+let n_constants = ref 1
 
 let float_to_hexrepr f =
   let double_norm = Int64.shift_left 1L 52 in
@@ -17,10 +17,16 @@ let float_to_hexrepr f =
 
 let add_float f =
   let h, l = float_to_hexrepr f in
-  floats := !floats ++ label (".LC" ^ string_of_int !n_floats) ++
-            long (immi l) ++ long (immi h);
-  n_floats := !n_floats + 1;
-  !n_floats - 1
+  constants := !constants ++ label (".LC" ^ string_of_int !n_constants) ++
+               long (immi l) ++ long (immi h);
+  n_constants := !n_constants + 1;
+  !n_constants - 1
+
+let add_string s =
+  constants := !constants ++ label ("message" ^ string_of_int !n_constants) ++
+               inline ("\t.string \"" ^ s ^ "\"\n");
+  n_constants := !n_constants + 1;
+  !n_constants - 1
 
 let rec iter n code = if n = 0 then nop else code ++ iter (n - 1) code
 
@@ -153,7 +159,12 @@ let rec expression lvl e =
          | _ -> assert false)
       | _ -> assert false
 
-  in let rec string_expr lvl = function Econst (n, _, _) -> label ""
+  in let rec string_expr lvl = function
+        Econst (c, _, _) ->
+        (match c with
+           Cstring x-> let n = add_string x in movq (ilab ("message" ^ string_of_int n)) (reg rdi)
+         | _ -> assert false)
+      | _ -> assert false
 
   in match (type_of_expr e) with
   | Standard(Integer) -> int_expr lvl e
@@ -188,12 +199,25 @@ let popn n = addq (imm (8 * n)) (reg rsp)
 
 let rec stmt lvl = function
   | Swriteln e -> expression lvl e ++
-    (match (type_of_expr e) with
-     | Standard(Integer) -> call "print_int"
-     | Standard(Real) -> call "print_float"
-     | Standard(Character) -> call "print_char"
-     | Standard(String(_)) -> call "print_string"
-     | _ -> (* TODO array *) label "")
+                  (match (type_of_expr e) with
+                   | Standard(Integer) -> call "print_int"
+                   | Standard(Real) -> call "print_float"
+                   | Standard(Character) -> call "print_char"
+                   | Standard(String(_)) -> call "print_string"
+                   | _ -> (* TODO array *) label "")
+  | Sread e ->
+    (match e with
+      Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
+        movq (reg rbp) (reg rsi) ++
+        iter (lvl - l) (movq (ind ~ofs:16 rsi) (reg rsi)) ++
+        leaq (ind ~ofs rsi) rdi
+     | _ -> assert false) ++
+    (match type_of_expr e with
+       Standard(Integer) -> call "read_int"
+     | Standard(Real) -> call "read_float"
+     | Standard(Character) -> call "read_char"
+     | Standard(String(_)) -> call "read_string"
+     | _ -> assert false)
   | Scall ({proc_name = id; proc_level = l}, el) ->
     List.fold_left
       (fun code s -> code ++ expression lvl s ++ match type_of_expr s with
@@ -319,6 +343,40 @@ let print_char_asm =
   leave ++ cfi_def_cfa (immi 7) (immi 8) ++
   ret ++ cfi_endproc
 
+let print_string_asm =
+  label "print_string" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  movq (reg rdi) (reg rsi) ++
+  movq (ilab ".Sprint_string") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "printf" ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
+let read_int_asm =
+  label "read_int" ++
+  cfi_startproc ++
+  pushq (reg rbp) ++
+  cfi_def_cfa_offset (immi 16) ++
+  cfi_offset (immi 6) (immi (-16)) ++
+  movq (reg rsp) (reg rbp) ++
+  cfi_def_cfa_register (immi 6) ++
+  subq (imm 16) (reg rsp) ++
+  movq (reg rdi) (ind ~ofs:(-8) rbp) ++
+  movq (ind ~ofs:(-8) rbp) (reg rax) ++
+  movq (reg rax) (reg rsi) ++
+  movq (ilab ".Sread_int") (reg rdi) ++
+  movq (imm 0) (reg rax) ++
+  call "scanf" ++
+  movq (ind ~ofs:(-8) rbp) (reg rax) ++
+  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+  ret ++ cfi_endproc
+
 let prog p =
   let fs = frame_size p.locals in
   let code_main = stmt 0 p.body in
@@ -339,11 +397,18 @@ let prog p =
       print_int_asm ++
       print_float_asm ++
       print_char_asm ++
+      print_string_asm ++
+      read_int_asm ++
       int_pow ++
-      !floats ++
+      !constants ++
       code_procs;
     data =
       label ".Sprint_int" ++ string "%d\n" ++
       label ".Sprint_float" ++ string "%f\n" ++
-      label ".Sprint_char" ++ string "%c\n"
+      label ".Sprint_char" ++ string "%c\n" ++
+      label ".Sprint_string" ++ string "%s\n" ++
+      label ".Sread_int" ++ string "%d" ++
+      label ".Sread_float" ++ string "%f" ++
+      label ".Sread_char" ++ string "%c" ++
+      label ".Sread_string" ++ string "%s"
   }

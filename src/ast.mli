@@ -93,12 +93,13 @@ type bool_expr =
 type pident = { proc_name : string; proc_level : int }
 
 type stmt =
-  | Sassign  of ident * expr
-  | Sif      of bool_expr * stmt * stmt
-  | Swhile   of bool_expr * stmt
-  | Sblock   of stmt list
-  | Scall    of pident * expr list
-  | Swriteln of expr
+  | Sassign   of ident * expr
+  | Sif       of bool_expr * stmt * stmt
+  | Swhile    of bool_expr * stmt
+  | Sblock    of stmt list
+  | Scall     of pident * expr list
+  | Swriteln  of expr
+  | Sread     of expr
 
 type procedure =
   { pident  : pident;

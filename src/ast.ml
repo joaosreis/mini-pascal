@@ -47,10 +47,10 @@ type pexpr =
   | PEbinop of binop * (pexpr * tposition) * (pexpr * tposition)
   | PEunop of unop * (pexpr * tposition)
 
-  type pbool_expr =
-      PBcmp    of cmp * pexpr * pexpr
-    | PBbinop  of bool_binop * pbool_expr * pbool_expr
-    | PBunop   of bool_unop * pbool_expr
+type pbool_expr =
+    PBcmp    of cmp * pexpr * pexpr
+  | PBbinop  of bool_binop * pbool_expr * pbool_expr
+  | PBunop   of bool_unop * pbool_expr
 
 type pstmt =
   | PSassign of string * pexpr
@@ -93,12 +93,13 @@ type expr =
 type pident = { proc_name : string; proc_level : int }
 
 type stmt =
-  | Sassign  of ident * expr
-  | Sif      of bool_expr * stmt * stmt
-  | Swhile   of bool_expr * stmt
-  | Sblock   of stmt list
-  | Scall    of pident * expr list
-  | Swriteln of expr
+  | Sassign   of ident * expr
+  | Sif       of bool_expr * stmt * stmt
+  | Swhile    of bool_expr * stmt
+  | Sblock    of stmt list
+  | Scall     of pident * expr list
+  | Swriteln  of expr
+  | Sread     of expr
 
 type procedure =
   { pident  : pident;
