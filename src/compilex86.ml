@@ -155,7 +155,8 @@ let rec expression lvl e =
         (match op with
          | Lbinop o ->
            (match o with
-            | Lconcat -> (* TODO implement *) label "")
+            | Lconcat ->
+              (* TODO implement *) nop)
          | _ -> assert false)
       | _ -> assert false
 
@@ -171,7 +172,7 @@ let rec expression lvl e =
   | Standard(Real) -> float_expr lvl e
   | Standard(Character) -> char_expr lvl e
   | Standard(String(_)) -> string_expr lvl e
-  | _ -> (* TODO array *) label ""
+  | _ -> (* TODO array *) nop
 
 let rec bool_expr lvl = function
     Bunop (op, e) ->
@@ -204,14 +205,14 @@ let rec stmt lvl = function
                    | Standard(Real) -> call "print_float"
                    | Standard(Character) -> call "print_char"
                    | Standard(String(_)) -> call "print_string"
-                   | _ -> (* TODO array *) label "")
+                   | _ -> (* TODO array *) nop)
   | Swrite e -> expression lvl e ++
-                  (match (type_of_expr e) with
-                   | Standard(Integer) -> call "print_int_noline"
-                   | Standard(Real) -> call "print_float_noline"
-                   | Standard(Character) -> call "print_char_noline"
-                   | Standard(String(_)) -> call "print_string_noline"
-                   | _ -> (* TODO array *) label "")
+                (match (type_of_expr e) with
+                 | Standard(Integer) -> call "print_int_noline"
+                 | Standard(Real) -> call "print_float_noline"
+                 | Standard(Character) -> call "print_char_noline"
+                 | Standard(String(_)) -> call "print_string_noline"
+                 | _ -> (* TODO array *) nop)
   | Sread e ->
     (match e with
        Evar ({ level = l; offset = ofs; by_reference = br }, _, _) ->
@@ -256,8 +257,8 @@ let rec stmt lvl = function
         else addq (imm ofs) (reg rsi)) ++
        movq (reg rdi) (ind rsi)
      | Standard(String(_)) ->
-       e1 (* TODO implement *)
-     | _ -> (* TODO array *) e1 (* TODO implement *))
+       nop (* TODO implement *)
+     | _ -> nop (* TODO implement *))
   | Sif (e, s1, s2) ->
     let l_else = fresh_label () in
     let l_done = fresh_label () in
@@ -273,23 +274,14 @@ let rec stmt lvl = function
   | Sblock sl ->
     List.fold_left (fun code s -> code ++ stmt lvl s) nop sl
 
-let frame_lenght dl =
-  List.fold_left (fun s d -> match d with
-      | Var vl -> s + List.length vl
-      | Procedure _ -> s) 0 dl
 
 let frame_size dl =
-  let n = 8 * frame_lenght dl
+  let n = 8 * List.fold_left (fun s d -> match d with
+      | Var vl -> s + List.length vl
+      | Procedure _ -> s) 0 dl
   in if n = 0 then 16
   else let r = n mod 16 in
     n + r
-
-let frame_size_p dl fl =
-  let n = 8 * (frame_lenght dl + List.length fl)
-  in if n = 0 then 16
-  else let r = n mod 16 in
-    n + r
-
 let procedure p =
   let fs = frame_size p.locals in
   label (symb p.pident.proc_name) ++
@@ -309,172 +301,45 @@ let rec decl = function
 
 and decls dl = List.fold_left (fun code d -> code ++ decl d) nop dl
 
-let print_int_asm =
-  label "print_int" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  movq (reg rdi) (reg rsi) ++
-  movq (ilab ".Sprint_int") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let print_int_noline_asm =
-  label "print_int_noline" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  movq (reg rdi) (reg rsi) ++
-  movq (ilab ".Sprint_int_noline") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-
-let print_float_asm =
-  label "print_float" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  subq (imm 16) (reg rsp) ++
-  movq (ilab ".Sprint_float") (reg rdi) ++
-  movq (imm 1) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let print_float_noline_asm =
-  label "print_float_noline" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  subq (imm 16) (reg rsp) ++
-  movq (ilab ".Sprint_float_noline") (reg rdi) ++
-  movq (imm 1) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let print_char_asm =
-  label "print_char" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  movq (reg rdi) (reg rsi) ++
-  movq (ilab ".Sprint_char") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let print_char_noline_asm =
-  label "print_char_noline" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  movq (reg rdi) (reg rsi) ++
-  movq (ilab ".Sprint_char_noline") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let print_string_asm =
-  label "print_string" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  movq (reg rdi) (reg rsi) ++
-  movq (ilab ".Sprint_string") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let print_string_noline_asm =
-  label "print_string_noline" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  movq (reg rdi) (reg rsi) ++
-  movq (ilab ".Sprint_string_noline") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "printf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let prints =
-  print_int_asm ++
-  print_float_asm ++
-  print_char_asm ++
-  print_string_asm ++
-  print_string_noline_asm ++
-  print_char_noline_asm ++
-  print_float_noline_asm ++
-  print_int_noline_asm
-
-let read_int_asm =
-  label "read_int" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  subq (imm 16) (reg rsp) ++
-  movq (reg rdi) (ind ~ofs:(-8) rbp) ++
-  movq (ind ~ofs:(-8) rbp) (reg rax) ++
-  movq (reg rax) (reg rsi) ++
-  movq (ilab ".Sread_int") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "scanf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
-
-let read_float_asm =
-  label "read_float" ++
-  cfi_startproc ++
-  pushq (reg rbp) ++
-  cfi_def_cfa_offset (immi 16) ++
-  cfi_offset (immi 6) (immi (-16)) ++
-  movq (reg rsp) (reg rbp) ++
-  cfi_def_cfa_register (immi 6) ++
-  subq (imm 16) (reg rsp) ++
-  movq (reg rdi) (ind ~ofs:(-8) rbp) ++
-  movq (ind ~ofs:(-8) rbp) (reg rax) ++
-  movq (reg rax) (reg rsi) ++
-  movq (ilab ".Sread_float") (reg rdi) ++
-  movq (imm 0) (reg rax) ++
-  call "scanf" ++
-  leave ++ cfi_def_cfa (immi 7) (immi 8) ++
-  ret ++ cfi_endproc
+let print_asm =
+  List.fold_left (fun code (l1,l2) ->
+      code ++
+      label l1 ++
+      cfi_startproc ++
+      pushq (reg rbp) ++
+      cfi_def_cfa_offset (immi 16) ++
+      cfi_offset (immi 6) (immi (-16)) ++
+      movq (reg rsp) (reg rbp) ++
+      cfi_def_cfa_register (immi 6) ++
+      movq (reg rdi) (reg rsi) ++
+      movq (ilab l2) (reg rdi) ++
+      movq (imm 0) (reg rax) ++
+      call "printf" ++
+      leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+      ret ++ cfi_endproc)
+    nop ["print_int",".Sprint_int";
+         "print_int_noline",".Sprint_int_noline";
+         "print_char",".Sprint_char";
+         "print_char_noline",".Sprint_char_noline";
+         "print_string",".Sprint_string";
+         "print_string_noline",".Sprint_string_noline"]
+  ++
+  List.fold_left (fun code (l1,l2) ->
+      code ++
+      label l1 ++
+      cfi_startproc ++
+      pushq (reg rbp) ++
+      cfi_def_cfa_offset (immi 16) ++
+      cfi_offset (immi 6) (immi (-16)) ++
+      movq (reg rsp) (reg rbp) ++
+      cfi_def_cfa_register (immi 6) ++
+      movq (ilab l2) (reg rdi) ++
+      movq (imm 1) (reg rax) ++
+      call "printf" ++
+      leave ++ cfi_def_cfa (immi 7) (immi 8) ++
+      ret ++ cfi_endproc)
+    nop ["print_float",".Sprint_float";
+         "print_float_noline",".Sprint_float_noline";]
 
 let read_asm =
   List.fold_left (fun code (l1,l2) ->
@@ -514,7 +379,7 @@ let prog p =
       movq (imm 0) (reg rax) ++
       leave ++ cfi_def_cfa (immi 7) (immi 8) ++
       ret ++ cfi_endproc ++
-      prints ++
+      print_asm ++
       read_asm ++
       int_pow ++
       !constants ++

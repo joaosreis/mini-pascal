@@ -15,6 +15,7 @@ let invalid_operand op t e =
   error ("operator " ^ string_of_operator op ^ " expects operand of type " ^ t ^ " but got " ^ string_of_type (type_of_expr e) ^ "\n" ^ string_of_expr_pos e)
 let incompatible_types t1 t2 e =
   error ("expected expression of type " ^ t1 ^ " but expression is of type " ^ t2 ^ "\n" ^ (string_of_expr_pos e))
+let invalid_argument m e = error (m ^ "\n" ^ string_of_expr_pos e)
 
 let unique =
   let r = ref 0 in fun s -> incr r; s ^ "__" ^ string_of_int !r
@@ -107,28 +108,22 @@ let rec stmt env = function
   | PScall ("write", [e]) -> Swrite (expression env e)
   | PScall ("readint", [e]) ->
     Sread
-      (match e with
-         PEvar _ -> let e1 = expression env e in
-         (match e1 with
-            Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
-          | _ -> assert false)
-       | _ -> error "" (* TODO error *))
+      (let e1 = expression env e in
+       match e1 with
+         Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
+       | _ -> invalid_argument "Argument must be a single variable." e1)
   | PScall ("readreal", [e]) ->
     Sread
-      (match e with
-         PEvar _ -> let e1 = expression env e in
-         (match e1 with
-            Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
-          | _ -> assert false)
-       | _ -> error "" (* TODO error *))
+      (let e1 = expression env e in
+       match e1 with
+         Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
+       | _ -> invalid_argument "Argument must be a single variable." e1)
   | PScall ("readchar", [e]) ->
     Sread
-      (match e with
-         PEvar _ -> let e1 = expression env e in
-         (match e1 with
-            Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
-          | _ -> assert false)
-       | _ -> error "" (* TODO error *))
+      (let e1 = expression env e in
+       match e1 with
+         Evar (i, a, b) -> Evar ({i with by_reference=true; }, a, b)
+       | _ -> invalid_argument "Argument must be a single variable." e1)
   | PScall (p, el) ->
     let p,fl = try Env.find p env.procs with Not_found -> unbound_proc p in
     let a = List.length fl in
