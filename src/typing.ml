@@ -99,8 +99,13 @@ let formal env (x,br,t) e =
 
 let rec stmt env = function
   | PSassign (x, e) ->
-    let x,_ = try Env.find x env.vars with Not_found -> unbound_var x in
-    Sassign (x, expression env e)
+    let x,t = try Env.find x env.vars with Not_found -> unbound_var x in
+    let e1 = expression env e in
+    let t2 = type_of_expr e1 in
+    if t <> t2 then
+      incompatible_types (string_of_type t) (string_of_type t2) e1
+    else
+      Sassign (x, e1)
   | PSif (b, s1, s2) -> Sif (bool_expr env b, stmt env s1, stmt env s2)
   | PSwhile (b, s1) -> Swhile (bool_expr env b, stmt env s1)
   | PSblock sl -> Sblock (List.map (stmt env) sl)
